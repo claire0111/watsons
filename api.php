@@ -217,18 +217,8 @@ if ($action === "updateProfile") {
     $addr1 = $body['address_line1'] ?? '';
     $addr2 = $body['address_line2'] ?? '';
 
-    query("
-        UPDATE customer SET 
-            name='{$name}',
-            phone='{$phone}',
-            city='{$city}',
-            district='{$district}',
-            postal_code='{$zip}',
-            address_line1='{$addr1}',
-            address_line2='{$addr2}'
-        WHERE customer_id = {$uid}
-    ");
-
+    query("UPDATE customer SET name='{$name}', phone='{$phone}',city='{$city}',district='{$district}',postal_code='{$zip}',address_line1='{$addr1}',address_line2='{$addr2}' WHERE customer_id = {$uid}");
+// echo "UPDATE customer SET name='{$name}', phone='{$phone}',city='{$city}',district='{$district}',postal_code='{$zip}',address_line1='{$addr1}',address_line2='{$addr2}' WHERE customer_id = {$uid}";
     echo json_encode(['success'=>true, 'msg'=>'資料已更新']);
     exit;
 }

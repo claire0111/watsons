@@ -51,12 +51,26 @@ session_start();
       overflow-y: auto;
     }
 
+    .product-name {
+      white-space: nowrap;
+      /* 單行顯示 */
+      overflow: hidden;
+      /* 超出部分隱藏 */
+      text-overflow: ellipsis;
+      /* 顯示省略號 */
+      max-width: 200px;
+      /* 或根據卡片寬度調整 */
+    }
+
     .product-img {
-  width: 100%;
-  height: 180px;       /* 你想限制的高度 */
-  object-fit: contain; /* ⬅️ 保持原比例，不變形 */
-  background-color: #fff; /* Watsons 商品圖常見白底 */
-}
+      width: 100%;
+      height: 180px;
+      /* 你想限制的高度 */
+      object-fit: contain;
+      /* ⬅️ 保持原比例，不變形 */
+      background-color: #fff;
+      /* Watsons 商品圖常見白底 */
+    }
   </style>
 </head>
 
@@ -107,14 +121,17 @@ session_start();
       <div class="col-9 col-md-10 p-4">
 
         <h3 class="mb-4" align="center">商品列表</h3>
-
+        <!-- 搜尋框 -->
+        <div class="mb-4 d-flex justify-content-center">
+          <input type="text" class="form-control w-50" placeholder="輸入商品名稱搜尋" v-model="searchQuery">
+        </div>
         <div class="row g-3">
 
           <div class="col-6 col-md-4 col-lg-3" v-for="p in filteredProducts" :key="p.product_id">
             <div class="card product-card shadow-sm border-0">
               <img :src="p.picture" class="card-img-top product-img">
               <div class="card-body">
-                <h6 class="card-title fw-bold">{{ p.product_name }}</h6>
+                <h6 class="card-title fw-bold product-name" :title=" p.product_name">{{ p.product_name }}</h6>
                 <p class="text-danger fw-bold">$ {{ p.price }}</p>
                 <button class="btn btn-primary w-100" @click="addToCart(p)">加入購物車</button>
               </div>
@@ -122,8 +139,28 @@ session_start();
           </div>
 
         </div>
+        <div class="pagination mt-4 d-flex align-items-center justify-content-center gap-1 flex-wrap">
+          <button class="btn btn-outline-secondary btn-sm" @click="goPage(1)" :disabled="currentPage===1">第一頁</button>
+          <button class="btn btn-outline-secondary btn-sm" @click="goPage(currentPage-1)" :disabled="currentPage===1">上一頁</button>
 
+          <button v-for="n in pageNumbers" :key="n" class="btn btn-sm"
+            :class="n===currentPage ? 'btn-primary' : 'btn-outline-primary'"
+            @click="goPage(n)">
+            {{ n }}
+          </button>
+
+          <button class="btn btn-outline-secondary btn-sm" @click="goPage(currentPage+1)" :disabled="currentPage===totalPages">下一頁</button>
+          <button class="btn btn-outline-secondary btn-sm" @click="goPage(totalPages)" :disabled="currentPage===totalPages">最後一頁</button>
+
+          <!-- 前往頁碼輸入 -->
+          <form @submit="goToInputPage" class="d-flex align-items-center ms-3">
+            <input type="number" v-model.number="inputPage" min="1" :max="totalPages" class="form-control form-control-sm" style="width:70px;">
+            <button type="submit" class="btn btn-sm btn-secondary ms-1">Go</button>
+          </form>
+        </div>
       </div>
+
+
 
     </div>
 
@@ -205,6 +242,7 @@ session_start();
           cartOpen: false,
           products: [],
           cart: [],
+          searchQuery: '', // 搜尋欄位
 
           mode: "login",
           loginForm: {
@@ -219,9 +257,13 @@ session_start();
           forgotForm: {
             email: ""
           },
-          products: [],
+
           selectedCategory: "",
-          categories:[],
+          categories: [],
+
+          currentPage: 1,
+          pageSize: 20,
+          inputPage: 1
         }
       },
 
@@ -237,18 +279,54 @@ session_start();
         total() {
           return this.cart.reduce((t, i) => t + i.qty * i.price, 0)
         },
-        // 取出分類（自動去重）
-        // categories() {
-          
-          // const cats = this.products.map(p => p.category);
-          // return [...new Set(cats)];
-        // },
 
-        // 根據分類篩選
+
+        // 篩選後的商品 (分類 + 搜尋)
+        filteredProductsFull() {
+          let prods = this.products;
+
+          // 篩選分類
+          if (this.selectedCategory) {
+            prods = prods.filter(p => p.category_id === this.selectedCategory);
+          }
+
+          // 篩選搜尋關鍵字
+          if (this.searchQuery.trim() !== '') {
+            const query = this.searchQuery.trim().toLowerCase();
+            prods = prods.filter(p => p.product_name.toLowerCase().includes(query));
+          }
+
+          return prods;
+        },
+
+        // 分頁後的商品
         filteredProducts() {
-          console.log(this.selectedCategory)
-          if (!this.selectedCategory) return this.products;
-          return this.products.filter(p => p.category_id === this.selectedCategory);
+          const start = (this.currentPage - 1) * this.pageSize;
+          const end = start + this.pageSize;
+          return this.filteredProductsFull.slice(start, end);
+        },
+
+        totalPages() {
+          return Math.ceil(this.filteredProductsFull.length / this.pageSize);
+        },
+        pageNumbers() {
+          let start_page = Math.max(1, this.currentPage - 5);
+          let end_page = Math.min(this.totalPages, this.currentPage + 4);
+
+          if (this.totalPages <= 10) {
+            start_page = 1;
+            end_page = this.totalPages;
+          } else if (end_page - start_page < 9) {
+            if (start_page === 1) {
+              end_page = Math.min(this.totalPages, start_page + 9);
+            } else {
+              start_page = Math.max(1, end_page - 9);
+            }
+          }
+
+          let pages = [];
+          for (let i = start_page; i <= end_page; i++) pages.push(i);
+          return pages;
         }
       },
 
@@ -277,9 +355,22 @@ session_start();
             });
           }
 
-
         },
-
+        goPage(page) {
+          if (page < 1) page = 1;
+          if (page > this.totalPages) page = this.totalPages;
+          this.currentPage = page;
+          this.inputPage = page;
+          window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+          });
+        },
+        goToInputPage(event) {
+          event.preventDefault();
+          const pageInput = parseInt(this.inputPage);
+          if (!isNaN(pageInput)) this.goPage(pageInput);
+        },
         changeQty(item, d) {
           item.qty += d;
         },
@@ -319,8 +410,8 @@ session_start();
           })
         },
 
-       
-        
+
+
       },
 
       mounted() {
@@ -329,7 +420,18 @@ session_start();
         });
         axios.get("api.php?action=products").then(res => this.products = res.data);
         axios.get("api.php?action=categories").then(res => this.categories = res.data);
-        
+
+      },
+      watch: {
+        // 當分類或搜尋文字改變時，自動回到第 1 頁
+        selectedCategory() {
+          this.currentPage = 1;
+          this.inputPage = 1;
+        },
+        searchQuery() {
+          this.currentPage = 1;
+          this.inputPage = 1;
+        }
       }
     }).mount("#app");
   </script>

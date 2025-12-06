@@ -70,7 +70,7 @@ session_start();
             <div class="logo-text">Watsons 屈臣氏</div>
 
             <div>
-                <button class="btn btn-light me-2" @click="$router.push('/')">← 返回首頁</button>
+                <button class="btn btn-light me-2" @click="goHome">← 返回首頁</button>
                 <button class="btn btn-warning" @click="toggleCart">🛒 購物車 {{ cartCount }}</button>
                 <!-- <button v-if="user" class="btn btn-outline-light me-2" onclick="location.href='information.php'">Hi, {{ user.name }}</button> -->
             </div>
@@ -78,7 +78,27 @@ session_start();
 
         <div class="container py-5 registration-container">
             <h3 class="mb-4 fw-bold text-center">基本資料</h3>
+            <div id="memberApp" class="container py-4">
 
+                <!-- 會員卡區塊 -->
+                <div class="card mb-4 shadow-sm p-3 d-flex flex-row align-items-center gap-3">
+
+                    <!-- 卡片圖片 -->
+                    <div>
+                        <img :src="cardImage" alt="會員卡" style="width:120px;">
+                    </div>
+
+                    <!-- 會員資訊 -->
+                    <div class="flex-grow-1">
+                        <h4 class="mb-1">{{ profile.name }} 的會員卡</h4>
+                        <p class="mb-1">等級：<strong>{{ profile.embership_level_id }}</strong></p>
+                        <p class="mb-1">目前點數：<strong>{{ profile.points }}</strong> 點</p>
+                        <small class="text-muted">{{ levelDescription }}</small>
+                    </div>
+
+                </div>
+
+            </div>
             <div class="card p-4 shadow-sm">
                 <div class="mb-3 form-row-item">
                     <label class="form-label text-end">
@@ -108,18 +128,18 @@ session_start();
                     <div class="d-flex align-items-center flex-wrap">
                         <label class="me-2">縣市</label>
                         <select class="form-select me-3" style="width: 130px;" v-model="profile.city" @change="updateDistricts">
-                            <option value="" disabled>請選擇縣市</option>
+                            <option disabled>請選擇縣市</option>
                             <option v-for="(city, index) in cities" :key="index" :value="city.city">{{ city.city }}</option>
                         </select>
 
                         <label class="me-2">區</label>
-                        <select class="form-select me-3" style="width: 120px;" v-model="selectedDistrict" @change="updateZipCode" :disabled="!selectedCity">
+                        <select class="form-select me-3" style="width: 120px;" v-model="profile.district" @change="updateZipCode" :disabled="!profile.city">
                             <option value="" disabled>請選擇區</option>
                             <option v-for="(district, index) in districts" :key="index" :value="district.district">{{ district.district }}</option>
                         </select>
 
                         <label class="me-2">郵遞區號</label>
-                        <input type="text" class="form-control" style="width: 80px;" :value="zipCode" disabled>
+                        <input type="text" class="form-control" style="width: 80px;" :value="profile.postal_code" disabled>
                     </div>
                 </div>
 
@@ -128,14 +148,14 @@ session_start();
                         <span class="required-star">*</span>地址
                     </label>
                     <div class="col-12">
-                        <input type="text" class="form-control" placeholder="請輸入主要地址" :value="profile.address_line1">
+                        <input type="text" class="form-control" placeholder="請輸入主要地址" v-model="profile.address_line1" :value="profile.address_line1">
                     </div>
                 </div>
 
                 <div class="mb-4 form-row-item form-row-address">
                     <label class="form-label text-end">地址 (非必填)</label>
                     <div class="col-12">
-                        <input type="text" class="form-control" placeholder="請輸入備用地址（非必填）" :value="profile.address_line2">
+                        <input type="text" class="form-control" placeholder="請輸入備用地址（非必填）" v-model="profile.address_line2" :value="profile.address_line2">
                     </div>
                 </div>
 
@@ -156,10 +176,7 @@ session_start();
             data() {
                 return {
                     cities: [],
-                    // selectedCity: '',
                     districts: [],
-                    // selectedDistrict: '',
-                    zipCode: '',
                     user: null,
                     profile: {
                         name: "",
@@ -169,7 +186,39 @@ session_start();
                         district: "",
                         postal_code: "",
                         address_line1: "",
-                        address_line2: ""
+                        address_line2: "",
+                        embership_level_id:"",
+                        points:""
+                    },
+                    levelDescription: '' // 初始值
+                }
+            },
+            computed: {
+                cardImage() {
+                    // 根據等級回傳對應圖片
+                    switch (this.profile.embership_level_id) {
+                        case "銀卡":
+                            return "src/silver_card.png";
+                        case "金卡":
+                            return "src/gold_card.png";
+                        case "白金卡":
+                            return "src/platinum_card.png";
+                        default:
+                            return "src/default_card.png";
+                    }
+                },
+                levelDescription() {
+                    console.log(this.profile.embership_level_id)
+                    // 顯示每個等級的條件
+                    switch (this.profile.embership_level_id) {
+                        case "1":
+                            return "銀卡條件：累積消費 0 - 2999 點數";
+                        case "2":
+                            return "金卡條件：累積消費 3000 - 6999 點數";
+                        case "3":
+                            return "白金卡條件：累積消費 7000 點以上";
+                        default:
+                            return "";
                     }
                 }
             },
@@ -179,19 +228,20 @@ session_start();
                 },
                 // 當選擇縣市時，更新區的下拉選單
                 updateDistricts() {
-                    this.selectedDistrict = ''; // 重置區
-                    this.zipCode = ''; // 重置郵遞區號
+                    this.profile.district = ''; // 重置區
+                    this.profile.postal_code = ''; // 重置郵遞區號
 
-                    const cityData = this.cities.find(c => c.city === this.selectedCity);
+                    const cityData = this.cities.find(c => c.city === this.profile.city);
+                    // console.log(this.profile.city);
                     this.districts = cityData ? cityData.districts : [];
                 },
                 // 當選擇區時，自動帶入郵遞區號
                 updateZipCode() {
-                    if (this.selectedCity && this.selectedDistrict) {
-                        const cityData = this.cities.find(c => c.city === this.selectedCity);
+                    if (this.profile.city && this.profile.district) {
+                        const cityData = this.cities.find(c => c.city === this.profile.city);
                         if (cityData) {
-                            const districtData = cityData.districts.find(d => d.district === this.selectedDistrict);
-                            this.zipCode = districtData ? districtData.zip : '';
+                            const districtData = cityData.districts.find(d => d.district === this.profile.district);
+                            this.profile.postal_code = districtData ? districtData.zip : '';
                         }
                     }
                 },
@@ -200,17 +250,18 @@ session_start();
 
                     axios.post("api.php?action=updateProfile", this.profile)
                         .then(res => {
+                            // console.log(res)
                             alert("資料已更新！");
                         });
                 },
                 /** 🔍表單欄位檢查 */
                 validateForm() {
-                    if (!this.user.name.trim() || this.user.name == undefined) return alert("請輸入姓名");
-                    if (!this.user.email.trim() || this.user.name == undefined) return alert("請輸入電子信箱");
-                    if (!this.user.Phone.trim() || this.user.name == undefined) return alert("請輸入手機號碼");
-                    if (!this.selectedCity) return alert("請選擇縣市");
-                    if (!this.selectedDistrict) return alert("請選擇區");
-                    if (!this.user.address_line1.trim() || this.user.name == undefined) return alert("請輸入主要地址");
+                    if (this.profile.name == undefined) return alert("請輸入姓名");
+                    if (this.profile.email == undefined) return alert("請輸入電子信箱");
+                    if (this.profile.phone == undefined) return alert("請輸入手機號碼");
+                    if (this.profile.city == undefined) return alert("請選擇縣市");
+                    if (this.profile.district == undefined) return alert("請選擇區");
+                    if (this.profile.address_line1 == undefined) return alert("請輸入主要地址");
 
                     return true;
                 },
@@ -218,6 +269,7 @@ session_start();
 
             },
             mounted() {
+                this.levelDescription = '銀卡：累積 0~1999 點';
                 // 取得登入者
                 axios.get("api.php?action=session").then(res => {
                     if (res.data.logged) {
@@ -229,6 +281,11 @@ session_start();
                 axios.get("api.php?action=getProfile").then(res => {
                     if (res.data.success) {
                         this.profile = res.data.profile;
+                        if (this.profile.city != undefined) {
+                            const cityData = this.cities.find(c => c.city === this.profile.city);
+                            console.log(this.profile.city);
+                            this.districts = cityData ? cityData.districts : [];
+                        }
                     }
                 });
                 axios.get("taiwan_adderss_data.json")
