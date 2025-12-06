@@ -173,6 +173,68 @@ if ($action === "checkout") {
 }
 
 
+
+// ----------------------------------------------
+// 取得個人資料
+// ----------------------------------------------
+if ($action === "getProfile") {
+
+    if (empty($_SESSION['login'])) {
+        echo json_encode(['success'=>false, 'msg'=>'未登入']);
+        exit;
+    }
+
+    $uid = $_SESSION['user']['id'];
+
+    $u = fetch(query("SELECT * FROM customer WHERE customer_id = {$uid}"));
+
+    echo json_encode([
+        'success'=>true,
+        'profile'=>$u
+    ]);
+    exit;
+}
+
+
+
+// ----------------------------------------------
+// 更新個人資料
+// ----------------------------------------------
+if ($action === "updateProfile") {
+
+    if (empty($_SESSION['login'])) {
+        echo json_encode(['success'=>false, 'msg'=>'未登入']);
+        exit;
+    }
+
+    $uid = $_SESSION['user']['id'];
+
+    $name  = $body['name'] ?? '';
+    $phone = $body['phone'] ?? '';
+    $city  = $body['city'] ?? '';
+    $district = $body['district'] ?? '';
+    $zip   = $body['postal_code'] ?? '';
+    $addr1 = $body['address_line1'] ?? '';
+    $addr2 = $body['address_line2'] ?? '';
+
+    query("
+        UPDATE customer SET 
+            name='{$name}',
+            phone='{$phone}',
+            city='{$city}',
+            district='{$district}',
+            postal_code='{$zip}',
+            address_line1='{$addr1}',
+            address_line2='{$addr2}'
+        WHERE customer_id = {$uid}
+    ");
+
+    echo json_encode(['success'=>true, 'msg'=>'資料已更新']);
+    exit;
+}
+
+
+
 // ----------------------------------------------
 echo json_encode(['success'=>false,'msg'=>'Unknown Action']);
 http_response_code(404);

@@ -43,7 +43,7 @@ session_start();
 
         /* 內容容器樣式 */
         .registration-container {
-            max-width: 700px;
+            max-width: 800px;
             /* 限制表單寬度 */
         }
 
@@ -70,9 +70,9 @@ session_start();
             <div class="logo-text">Watsons 屈臣氏</div>
 
             <div>
-                <button class="btn btn-light me-2" v-if="!user" @click="$router.push('/')">← 返回首頁</button>
+                <button class="btn btn-light me-2" @click="$router.push('/')">← 返回首頁</button>
                 <button class="btn btn-warning" @click="toggleCart">🛒 購物車 {{ cartCount }}</button>
-                <button v-if="user" class="btn btn-outline-light me-2" onclick="location.href='information.php'">Hi, {{ user.name }}</button>
+                <!-- <button v-if="user" class="btn btn-outline-light me-2" onclick="location.href='information.php'">Hi, {{ user.name }}</button> -->
             </div>
         </div>
 
@@ -84,21 +84,21 @@ session_start();
                     <label class="form-label text-end">
                         <span class="required-star">*</span>姓名
                     </label>
-                    <input v-if="user" type="text" class="form-control" :value="user.name">
+                    <input v-if="user" type="text" class="form-control" :value="profile.name">
                 </div>
 
                 <div class="mb-3 form-row-item">
                     <label class="form-label text-end">
                         <span class="required-star">*</span>電子信箱
                     </label>
-                    <input v-if="user" type="email" class="form-control" :value="user.email">
+                    <input v-if="user" type="email" class="form-control" :value="profile.email">
                 </div>
 
                 <div class="mb-3 form-row-item">
                     <label class="form-label text-end">
                         <span class="required-star">*</span>手機號碼
                     </label>
-                    <input type="tel" class="form-control" v-if="user" :value="user.Phone">
+                    <input type="tel" class="form-control" v-if="user" :value="profile.phone">
                 </div>
 
                 <div class="mb-3 form-row-item">
@@ -107,7 +107,7 @@ session_start();
                     </label>
                     <div class="d-flex align-items-center flex-wrap">
                         <label class="me-2">縣市</label>
-                        <select class="form-select me-3" style="width: 120px;" v-model="selectedCity" @change="updateDistricts">
+                        <select class="form-select me-3" style="width: 130px;" v-model="profile.city" @change="updateDistricts">
                             <option value="" disabled>請選擇縣市</option>
                             <option v-for="(city, index) in cities" :key="index" :value="city.city">{{ city.city }}</option>
                         </select>
@@ -128,19 +128,19 @@ session_start();
                         <span class="required-star">*</span>地址
                     </label>
                     <div class="col-12">
-                        <input type="text" class="form-control" placeholder="請輸入主要地址">
+                        <input type="text" class="form-control" placeholder="請輸入主要地址" :value="profile.address_line1">
                     </div>
                 </div>
 
                 <div class="mb-4 form-row-item form-row-address">
                     <label class="form-label text-end">地址 (非必填)</label>
                     <div class="col-12">
-                        <input type="text" class="form-control" placeholder="請輸入備用地址（非必填）">
+                        <input type="text" class="form-control" placeholder="請輸入備用地址（非必填）" :value="profile.address_line2">
                     </div>
                 </div>
 
                 <div class="text-center">
-                    <button class="btn btn-success btn-lg" style="width: 200px;">送出</button>
+                    <button class="btn btn-success btn-lg" style="width:200px" @click="updateProfile">送出</button>
                 </div>
 
             </div>
@@ -156,14 +156,27 @@ session_start();
             data() {
                 return {
                     cities: [],
-                    selectedCity: '',
+                    // selectedCity: '',
                     districts: [],
-                    selectedDistrict: '',
+                    // selectedDistrict: '',
                     zipCode: '',
                     user: null,
+                    profile: {
+                        name: "",
+                        email: "",
+                        phone: "",
+                        city: "",
+                        district: "",
+                        postal_code: "",
+                        address_line1: "",
+                        address_line2: ""
+                    }
                 }
             },
             methods: {
+                goHome() {
+                    location.href = "index.php";
+                },
                 // 當選擇縣市時，更新區的下拉選單
                 updateDistricts() {
                     this.selectedDistrict = ''; // 重置區
@@ -181,19 +194,42 @@ session_start();
                             this.zipCode = districtData ? districtData.zip : '';
                         }
                     }
-                }
+                },
+                updateProfile() {
+                    if (!this.validateForm()) return;
+
+                    axios.post("api.php?action=updateProfile", this.profile)
+                        .then(res => {
+                            alert("資料已更新！");
+                        });
+                },
+                /** 🔍表單欄位檢查 */
+                validateForm() {
+                    if (!this.user.name.trim() || this.user.name == undefined) return alert("請輸入姓名");
+                    if (!this.user.email.trim() || this.user.name == undefined) return alert("請輸入電子信箱");
+                    if (!this.user.Phone.trim() || this.user.name == undefined) return alert("請輸入手機號碼");
+                    if (!this.selectedCity) return alert("請選擇縣市");
+                    if (!this.selectedDistrict) return alert("請選擇區");
+                    if (!this.user.address_line1.trim() || this.user.name == undefined) return alert("請輸入主要地址");
+
+                    return true;
+                },
+
+
             },
             mounted() {
+                // 取得登入者
                 axios.get("api.php?action=session").then(res => {
-                    if (res.data.logged) this.user = res.data.user;
-                    this.user.add({
-                        "Phone":"",
-                        "address_line1":"",
-                        "address_line2":"",
-                        "district":"",
-                        "city":"",
-                        "postal_code":""
-                    });
+                    if (res.data.logged) {
+                        this.user = res.data.user;
+                    }
+                });
+
+                // 取得個人資料
+                axios.get("api.php?action=getProfile").then(res => {
+                    if (res.data.success) {
+                        this.profile = res.data.profile;
+                    }
                 });
                 axios.get("taiwan_adderss_data.json")
                     .then(res => {
