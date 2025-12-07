@@ -127,7 +127,7 @@ session_start();
         </div>
         <div class="row g-3">
 
-          <div class="col-6 col-md-4 col-lg-3" v-for="p in filteredProducts" :key="p.product_id">
+          <div class="col-6 col-md-4 col-lg-3" v-for="p in filteredProducts" :key="p.product_id" @click="toProducts(p.product_id)">
             <div class="card product-card shadow-sm border-0">
               <img :src="p.picture" class="card-img-top product-img">
               <div class="card-body">
@@ -331,7 +331,11 @@ session_start();
       },
 
       methods: {
-
+        modalTitle() {
+          return this.mode === "login" ? "會員登入" :
+            this.mode === "register" ? "註冊新帳號" :
+            "忘記密碼";
+        },
         /*** 開啟 modal ***/
         openModal(mode) {
           this.mode = mode;
@@ -394,7 +398,7 @@ session_start();
 
         forgotPassword() {
           axios.post("api.php?action=forgot", this.forgotForm).then(res => {
-            alert(res.data.msg);
+            alert(res.data.message);
           });
         },
 
@@ -409,7 +413,10 @@ session_start();
             } else alert(res.data.msg);
           })
         },
+toProducts(id){
 
+  location.href = "comment.php?product_id="+id;
+}
 
 
       },

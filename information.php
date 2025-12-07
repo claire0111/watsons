@@ -71,16 +71,18 @@ session_start();
 
             <div>
                 <button class="btn btn-light me-2" @click="goHome">← 返回首頁</button>
-                <button class="btn btn-warning" @click="toggleCart">🛒 購物車 {{ cartCount }}</button>
+                <button class="btn btn-warning me-2" @click="logout">登出</button>
+                <!-- <button class="btn btn-warning" @click="toggleCart">🛒 購物車 {{ cartCount }}</button> -->
                 <!-- <button v-if="user" class="btn btn-outline-light me-2" onclick="location.href='information.php'">Hi, {{ user.name }}</button> -->
             </div>
         </div>
 
         <div class="container py-5 registration-container">
             <h3 class="mb-4 fw-bold text-center">基本資料</h3>
+            <!-- 會員卡 + 進度條區塊 -->
             <div id="memberApp" class="container py-4">
 
-                <!-- 會員卡區塊 -->
+                <!-- 會員卡資訊 -->
                 <div class="card mb-4 shadow-sm p-3 d-flex flex-row align-items-center gap-3">
 
                     <!-- 卡片圖片 -->
@@ -88,17 +90,41 @@ session_start();
                         <img :src="cardImage" alt="會員卡" style="width:120px;">
                     </div>
 
-                    <!-- 會員資訊 -->
+                    <!-- 會員文字資訊 -->
                     <div class="flex-grow-1">
                         <h4 class="mb-1">{{ profile.name }} 的會員卡</h4>
-                        <p class="mb-1">等級：<strong>{{ profile.embership_level_id }}</strong></p>
+                        <p class="mb-1">等級：<strong>{{ profile.membership_level_id==1?"銀卡":profile.membership_level_id==2?"金卡":"白金卡"  }}</strong></p>
                         <p class="mb-1">目前點數：<strong>{{ profile.points }}</strong> 點</p>
                         <small class="text-muted">{{ levelDescription }}</small>
                     </div>
+                </div>
 
+                <!-- 升級進度條 -->
+                <div class="card p-3 shadow-sm">
+                    <h5 class="fw-bold mb-3">升級進度</h5>
+
+                    <div class="mb-2 d-flex justify-content-between">
+                        <span>{{ profile.membership_level_id==1?"銀卡":profile.membership_level_id==2?"金卡":"白金卡" }} → {{ nextLevel }}</span>
+                        <span v-if="nextLevel !== '已達最高等級'">
+                            還差 <strong>{{ pointsToNext }}</strong> 點
+                        </span>
+                    </div>
+
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar progress-bar-striped bg-success"
+                            role="progressbar"
+                            :style="{ width: progressPercent + '%' }">
+                            {{ Math.floor(progressPercent) }}%
+                        </div>
+                    </div>
+
+                    <p class="text-muted mt-2" v-if="nextLevel === '已達最高等級'">
+                        🎉 您已達最高等級白金卡，享有最高回饋！
+                    </p>
                 </div>
 
             </div>
+
             <div class="card p-4 shadow-sm">
                 <div class="mb-3 form-row-item">
                     <label class="form-label text-end">
@@ -187,42 +213,95 @@ session_start();
                         postal_code: "",
                         address_line1: "",
                         address_line2: "",
-                        embership_level_id:"",
-                        points:""
+                        membership_level_id: "",
+                        points: ""
                     },
                     levelDescription: '' // 初始值
                 }
             },
             computed: {
                 cardImage() {
+                    console.log(this.profile.membership_level_id)
                     // 根據等級回傳對應圖片
-                    switch (this.profile.embership_level_id) {
-                        case "銀卡":
-                            return "src/silver_card.png";
-                        case "金卡":
-                            return "src/gold_card.png";
-                        case "白金卡":
-                            return "src/platinum_card.png";
+                    switch (this.profile.membership_level_id) {
+                        case 1:
+                            return "src/銀卡.png";
+                        case 2:
+                            return "src/金卡.png";
+                        case 3:
+                            return "src/白金卡.png";
                         default:
-                            return "src/default_card.png";
+                            return "src/銀卡.png";
                     }
                 },
                 levelDescription() {
-                    console.log(this.profile.embership_level_id)
+                    // console.log(this.profile.membership_level_id)
                     // 顯示每個等級的條件
-                    switch (this.profile.embership_level_id) {
-                        case "1":
+                    switch (this.profile.membership_level_id) {
+                        case 1:
                             return "銀卡條件：累積消費 0 - 2999 點數";
-                        case "2":
+                        case 2:
                             return "金卡條件：累積消費 3000 - 6999 點數";
-                        case "3":
+                        case 3:
                             return "白金卡條件：累積消費 7000 點以上";
                         default:
                             return "";
                     }
+                },
+                /* 下一個等級 */
+                nextLevel() {
+                    if (this.profile.membership_level_id === 1) return "金卡";
+                    if (this.profile.membership_level_id === 2) return "白金卡";
+                    return "已達最高等級";
+                },
+
+                /* 升級點數的範圍 */
+                levelRanges() {
+                    return {
+                        1: {
+                            min: 0,
+                            max: 3000
+                        },
+                        2: {
+                            min: 3000,
+                            max: 7000
+                        },
+                        3: {
+                            min: 7000,
+                            max: 7000
+                        } // 封頂
+                    };
+                },
+
+                /* 距離下一級還差多少點 */
+                pointsToNext() {
+                    if (this.profile.membership_level_id === "白金卡") return 0;
+                    const nextMax = this.levelRanges[this.profile.membership_level_id].max;
+                    return Math.max(0, nextMax - this.profile.points);
+                },
+
+                /* 百分比進度條（0–100%） */
+                progressPercent() {
+                    const range = this.levelRanges[this.profile.membership_level_id] || {
+                        min: 0,
+                        max: 1
+                    };
+                    if (this.profile.membership_level_id === "白金卡") return 100;
+
+                    const gained = this.profile.points - range.min;
+                    const total = range.max - range.min;
+
+                    return Math.min(100, Math.max(0, (gained / total) * 100));
                 }
             },
             methods: {
+                logout() {
+                    axios.post("api.php?action=logout")
+                        .then(res => {
+                            alert("登出成功");
+                            location.href = "index.php";
+                        });
+                },
                 goHome() {
                     location.href = "index.php";
                 },
