@@ -6,8 +6,8 @@ session_start();
 $target_id = null;
 
 // 情況 A: 網址有帶 ID (例如 product.php?id=3) -> 優先權最高
-if (isset($_POST['product_id']) && !empty($_POST['product_id'])) {
-    $target_id = (int)$_POST['product_id'];
+if (isset($_GET['product_id']) && !empty($_GET['product_id'])) {
+    $target_id = (int)$_GET['product_id'];
     $_SESSION['product_id'] = $target_id; // 更新 Session，記住這個商品
 } 
 // 情況 B: 網址沒帶 ID，但 Session 裡有紀錄 (例如剛剛看過) -> 優先權次之

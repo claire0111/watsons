@@ -415,7 +415,7 @@ session_start();
         },
 toProducts(id){
 
-  location.href = "comment.php?product_id="+id;
+  location.href = "product_details.php?product_id="+id;
 }
 
 
