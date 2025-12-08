@@ -299,6 +299,95 @@ if ($action === "updateProfile") {
 
 
 // ----------------------------------------------
+// 取得商品資料
+// ----------------------------------------------
+if ($action === "logproducts") {
+    $product_id  = $body['product_id'] ?? '';
+    // echo $product_id;
+    $res = fetch(query("SELECT * FROM `product` WHERE `product_id`='{$product_id}' ORDER BY `product_id` ASC"));
+    $res["picture"] = "src/products/{$res['category_id']}/{$res['product_id']}.jpg";
+    echo json_encode([
+        'success' => true,
+        'product' => $res 
+    ]);
+
+    exit;
+}
+
+
+
+// ----------------------------------------------
+// 新增商品到購物車
+// ----------------------------------------------
+if ($action === 'addToCart') {
+
+    $product_id = $body['product_id'] ?? 0;
+    $qty = max(1, intval($body['qty'] ?? 1));
+
+    if (!$product_id) {
+        echo json_encode(['success' => false, 'msg' => '商品ID錯誤']);
+        exit;
+    }
+
+    // 取得商品資訊
+    $res = fetch(query("SELECT * FROM `product` WHERE `product_id`='{$product_id}'"));
+    if (!$res) {
+        echo json_encode(['success' => false, 'msg' => '找不到商品']);
+        exit;
+    }
+
+    // 初始化購物車
+    if (!isset($_SESSION['cart'])) $_SESSION['cart'] = [];
+
+    // 若已存在購物車就增加數量
+    if (isset($_SESSION['cart'][$product_id])) {
+        $_SESSION['cart'][$product_id]['qty'] += $qty;
+    } else {
+        $_SESSION['cart'][$product_id] = [
+            'product_id' => $res['product_id'],
+            'product_name' => $res['product_name'],
+            'price' => $res['price'],
+            'qty' => $qty,
+        ];
+    }
+
+    echo json_encode(['success' => true, 'cart' => array_values($_SESSION['cart'])]);
+    exit;
+}
+
+
+
+// ----------------------------------------------
+// 取得購物車
+// ----------------------------------------------
+if ($action === 'getCart') {
+    if (!isset($_SESSION['cart'])) $_SESSION['cart'] = [];
+    echo json_encode(['success' => true, 'cart' => array_values($_SESSION['cart'])]);
+    exit;
+}
+
+
+
+// ----------------------------------------------
+// 更新購物車數量
+// ----------------------------------------------
+if ($action === 'updateCart') {
+    $product_id = $body['product_id'] ?? 0;
+    $qty = intval($body['qty'] ?? 1);
+
+    if (isset($_SESSION['cart'][$product_id])) {
+        if ($qty <= 0) {
+            unset($_SESSION['cart'][$product_id]); // 刪除
+        } else {
+            $_SESSION['cart'][$product_id]['qty'] = $qty;
+        }
+    }
+
+    echo json_encode(['success' => true, 'cart' => array_values($_SESSION['cart'])]);
+    exit;
+}
+
+// ----------------------------------------------
 echo json_encode(['success' => false, 'msg' => 'Unknown Action']);
 http_response_code(404);
 exit;

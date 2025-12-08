@@ -127,11 +127,11 @@ session_start();
         </div>
         <div class="row g-3">
 
-          <div class="col-6 col-md-4 col-lg-3" v-for="p in filteredProducts" :key="p.product_id" @click="toProducts(p.product_id)">
+          <div class="col-6 col-md-4 col-lg-3" v-for="p in filteredProducts" :key="p.product_id">
             <div class="card product-card shadow-sm border-0">
-              <img :src="p.picture" class="card-img-top product-img">
+              <img :src="p.picture" class="card-img-top product-img" @click="toProducts(p.product_id)">
               <div class="card-body">
-                <h6 class="card-title fw-bold product-name" :title=" p.product_name">{{ p.product_name }}</h6>
+                <h6 class="card-title fw-bold product-name" :title=" p.product_name" @click="toProducts(p.product_id)">{{ p.product_name }}</h6>
                 <p class="text-danger fw-bold">$ {{ p.price }}</p>
                 <button class="btn btn-primary w-100" @click="addToCart(p)">加入購物車</button>
               </div>
@@ -171,11 +171,11 @@ session_start();
       <hr>
 
       <div v-for="item in cart" class="mb-3">
-        <h6>{{ item.name }}</h6>
+        <h6>{{ item.product_name }}</h6>
         <p class="text-danger">$ {{ item.price }}</p>
 
         <div class="d-flex align-items-center">
-          <button class="btn btn-sm btn-secondary" @click="changeQty(item,-1)" :disabled="item.qty<=1">-</button>
+          <button class="btn btn-sm btn-secondary" @click="changeQty(item,-1)">-</button>
           <span class="px-3">{{ item.qty }}</span>
           <button class="btn btn-sm btn-secondary" @click="changeQty(item,+1)">+</button>
         </div>
@@ -351,14 +351,42 @@ session_start();
           if (this.user == null) {
             this.openModal('login');
           } else {
-            let f = this.cart.find(x => x.product_id === p.product_id);
-            if (f) f.qty++;
-            else this.cart.push({
-              ...p,
+            axios.post('api.php?action=addToCart', {
+              product_id: p.product_id,
               qty: 1
+            }).then(res => {
+              if (res.data.success) {
+                alert('已加入購物車');
+                this.cart = res.data.cart; // 更新前端購物車顯示
+                // this.loadCart(); // 載入購物車
+              } else {
+                alert(res.data.msg || '加入購物車失敗');
+              }
             });
           }
 
+        },
+        loadCart() {
+          // 進入頁面時載入 SESSION 購物車
+          axios.get('api.php?action=getCart').then(res => {
+            if (res.data.success) {
+              this.cart = res.data.cart;
+            }
+          });
+        },
+
+        changeQty(item, d) {
+          let newQty = item.qty + d;
+          // if (newQty < 1) return;
+          console.log(newQty);
+          axios.post('api.php?action=updateCart', {
+            product_id: item.product_id,
+            qty: newQty
+          }).then(res => {
+            if (res.data.success) {
+              this.cart = res.data.cart;
+            }
+          });
         },
         goPage(page) {
           if (page < 1) page = 1;
@@ -375,9 +403,7 @@ session_start();
           const pageInput = parseInt(this.inputPage);
           if (!isNaN(pageInput)) this.goPage(pageInput);
         },
-        changeQty(item, d) {
-          item.qty += d;
-        },
+        
 
         /*** Auth ***/
         login() {
@@ -413,10 +439,10 @@ session_start();
             } else alert(res.data.msg);
           })
         },
-toProducts(id){
+        toProducts(id) {
 
-  location.href = "product_details.php?product_id="+id;
-}
+          location.href = "product_details.php?product_id=" + id;
+        }
 
 
       },
@@ -427,7 +453,7 @@ toProducts(id){
         });
         axios.get("api.php?action=products").then(res => this.products = res.data);
         axios.get("api.php?action=categories").then(res => this.categories = res.data);
-
+        this.loadCart();
       },
       watch: {
         // 當分類或搜尋文字改變時，自動回到第 1 頁

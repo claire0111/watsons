@@ -1,0 +1,100 @@
+[{
+  "_id": {
+    "$oid": "69325e883089764024dae4e5"
+  },
+  "product_id": 1,
+  "customer_id": 1,
+  "rating": 5,
+  "comment": "洗面乳清潔力很好，洗完不緊繃，很喜歡！",
+  "created_at": "2025-01-01T10:00:00Z"
+},
+{
+  "_id": {
+    "$oid": "69325e883089764024dae4e6"
+  },
+  "product_id": 2,
+  "customer_id": 2,
+  "rating": 4,
+  "comment": "控油效果不錯，但味道有點重。",
+  "created_at": "2025-01-02T12:30:00Z"
+},
+{
+  "_id": {
+    "$oid": "69325e883089764024dae4e7"
+  },
+  "product_id": 3,
+  "customer_id": 3,
+  "rating": 5,
+  "comment": "價格便宜又好用，痘痘有改善！",
+  "created_at": "2025-01-03T14:20:00Z"
+},
+{
+  "_id": {
+    "$oid": "69325e883089764024dae4e8"
+  },
+  "product_id": 4,
+  "customer_id": 1,
+  "rating": 3,
+  "comment": "普通，清潔力一般，沒有特別感覺。",
+  "created_at": "2025-01-04T16:10:00Z"
+},
+{
+  "_id": {
+    "$oid": "69325e883089764024dae4e9"
+  },
+  "product_id": 5,
+  "customer_id": 2,
+  "rating": 5,
+  "comment": "泡泡很綿密，洗起來舒服，會回購！",
+  "created_at": "2025-01-05T09:50:00Z"
+},
+{
+  "_id": {
+    "$oid": "69325e883089764024dae4ea"
+  },
+  "product_id": 6,
+  "customer_id": 3,
+  "rating": 4,
+  "comment": "對痘痘有一點幫助，但乾性肌用完可能會緊繃。",
+  "created_at": "2025-01-06T11:40:00Z"
+},
+{
+  "_id": {
+    "$oid": "69325e883089764024dae4eb"
+  },
+  "product_id": 7,
+  "customer_id": 1,
+  "rating": 5,
+  "comment": "控油超強！夏天必備。",
+  "created_at": "2025-01-07T08:15:00Z"
+},
+{
+  "_id": {
+    "$oid": "69325e883089764024dae4ec"
+  },
+  "product_id": 8,
+  "customer_id": 2,
+  "rating": 4,
+  "comment": "柔珠洗面乳很溫和，適合每天使用。",
+  "created_at": "2025-01-08T13:05:00Z"
+},
+{
+  "_id": {
+    "$oid": "69325e883089764024dae4ed"
+  },
+  "product_id": 9,
+  "customer_id": 3,
+  "rating": 5,
+  "comment": "洗起來很涼爽，早上起床用很清醒！",
+  "created_at": "2025-01-09T17:30:00Z"
+},
+{
+  "_id": {
+    "$oid": "69325e883089764024dae4ee"
+  },
+  "product_id": 10,
+  "customer_id": 1,
+  "rating": 4,
+  "comment": "質地還不錯，但美白效果還看不太出來。",
+  "created_at": "2025-01-10T19:00:00Z"
+}]

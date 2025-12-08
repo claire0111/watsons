@@ -344,7 +344,7 @@ session_start();
                 <button class="btn btn-light me-2" @click="goHome">← 返回首頁</button>
                 <button class="btn btn-light me-2" v-if="!user" @click="openModal('login')">登入</button>
                 <button class="btn btn-outline-light me-2" v-if="!user" @click="openModal('register')">註冊</button>
-                
+
                 <button v-if="user" class="btn btn-outline-light me-2" onclick="location.href='information.php'">Hi, {{ user.name }}</button>
                 <button class="btn btn-warning" @click="toggleCart">🛒 購物車 {{ cartCount }}</button>
             </div>
@@ -353,18 +353,17 @@ session_start();
         <div class="page-content">
             <div class="product-main-info">
                 <div class="product-image-wrapper">
-                    <img src="" alt="商品圖片" class="product-image">
+                    <img :src="product.picture" alt="商品圖片" class="product-image" v-if="product">
                 </div>
 
                 <div class="product-details">
                     <div class="product-name">
-                        <?php //echo htmlspecialchars($product['name']); 
-                        ?>
+                        {{ product ? product.product_name:"" }}
                     </div>
                     <div class="product-price">
-                        NT$ <?php //echo number_format($product['price']); 
-                            ?>
-                    </div>
+                        NT$ {{ product ? product.price:"" }}
+                    </div><br />
+                    <button class="btn btn-primary w-100" @click="addToCart()">加入購物車</button>
                 </div>
             </div>
             <div class="review-section">
@@ -468,11 +467,11 @@ session_start();
             <hr>
 
             <div v-for="item in cart" class="mb-3">
-                <h6>{{ item.name }}</h6>
+                <h6>{{ item.product_name }}</h6>
                 <p class="text-danger">$ {{ item.price }}</p>
 
                 <div class="d-flex align-items-center">
-                    <button class="btn btn-sm btn-secondary" @click="changeQty(item,-1)" :disabled="item.qty<=1">-</button>
+                    <button class="btn btn-sm btn-secondary" @click="changeQty(item,-1)">-</button>
                     <span class="px-3">{{ item.qty }}</span>
                     <button class="btn btn-sm btn-secondary" @click="changeQty(item,+1)">+</button>
                 </div>
@@ -528,6 +527,29 @@ session_start();
 
 
     <script>
+        let product_id = <?php echo $_GET["product_id"]; ?>;
+
+        function openReviewModal() {
+            document.getElementById('reviewModal').style.display = 'flex';
+        }
+
+        function closeReviewModal() {
+            document.getElementById('reviewModal').style.display = 'none';
+        }
+        window.onclick = function(event) {
+            if (event.target === document.getElementById('reviewModal')) closeReviewModal();
+        }
+
+        document.querySelectorAll('.modal-rating-stars span').forEach(star => {
+            star.addEventListener('click', function() {
+                const rating = parseInt(this.getAttribute('data-value'));
+                document.getElementById('ratingInput').value = rating;
+                document.querySelectorAll('.modal-rating-stars span').forEach(s => {
+                    s.style.color = (parseInt(s.getAttribute('data-value')) <= rating) ? '#ffc107' : '#ccc';
+                });
+            });
+        });
+
         const {
             createApp
         } = Vue;
@@ -535,9 +557,10 @@ session_start();
         createApp({
             data() {
                 return {
+
                     user: null,
                     cartOpen: false,
-                    products: [],
+                    product: null,
                     cart: [],
                     searchQuery: '', // 搜尋欄位
 
@@ -578,53 +601,7 @@ session_start();
                 },
 
 
-                // 篩選後的商品 (分類 + 搜尋)
-                filteredProductsFull() {
-                    let prods = this.products;
 
-                    // 篩選分類
-                    if (this.selectedCategory) {
-                        prods = prods.filter(p => p.category_id === this.selectedCategory);
-                    }
-
-                    // 篩選搜尋關鍵字
-                    if (this.searchQuery.trim() !== '') {
-                        const query = this.searchQuery.trim().toLowerCase();
-                        prods = prods.filter(p => p.product_name.toLowerCase().includes(query));
-                    }
-
-                    return prods;
-                },
-
-                // 分頁後的商品
-                filteredProducts() {
-                    const start = (this.currentPage - 1) * this.pageSize;
-                    const end = start + this.pageSize;
-                    return this.filteredProductsFull.slice(start, end);
-                },
-
-                totalPages() {
-                    return Math.ceil(this.filteredProductsFull.length / this.pageSize);
-                },
-                pageNumbers() {
-                    let start_page = Math.max(1, this.currentPage - 5);
-                    let end_page = Math.min(this.totalPages, this.currentPage + 4);
-
-                    if (this.totalPages <= 10) {
-                        start_page = 1;
-                        end_page = this.totalPages;
-                    } else if (end_page - start_page < 9) {
-                        if (start_page === 1) {
-                            end_page = Math.min(this.totalPages, start_page + 9);
-                        } else {
-                            start_page = Math.max(1, end_page - 9);
-                        }
-                    }
-
-                    let pages = [];
-                    for (let i = start_page; i <= end_page; i++) pages.push(i);
-                    return pages;
-                }
             },
 
             methods: {
@@ -647,36 +624,46 @@ session_start();
                 },
 
                 /*** 加入購物車 ***/
-                addToCart(p) {
+                addToCart() {
                     if (this.user == null) {
                         this.openModal('login');
                     } else {
-                        let f = this.cart.find(x => x.product_id === p.product_id);
-                        if (f) f.qty++;
-                        else this.cart.push({
-                            ...p,
+                        axios.post('api.php?action=addToCart', {
+                            product_id: product_id,
                             qty: 1
+                        }).then(res => {
+                            if (res.data.success) {
+                                alert('已加入購物車');
+                                this.cart = res.data.cart; // 更新前端購物車顯示
+                                // this.loadCart(); // 載入購物車
+                            } else {
+                                alert(res.data.msg || '加入購物車失敗');
+                            }
                         });
                     }
 
                 },
-                goPage(page) {
-                    if (page < 1) page = 1;
-                    if (page > this.totalPages) page = this.totalPages;
-                    this.currentPage = page;
-                    this.inputPage = page;
-                    window.scrollTo({
-                        top: 0,
-                        behavior: 'smooth'
+                loadCart() {
+                    // 進入頁面時載入 SESSION 購物車
+                    axios.get('api.php?action=getCart').then(res => {
+                        if (res.data.success) {
+                            this.cart = res.data.cart;
+                        }
                     });
                 },
-                goToInputPage(event) {
-                    event.preventDefault();
-                    const pageInput = parseInt(this.inputPage);
-                    if (!isNaN(pageInput)) this.goPage(pageInput);
-                },
+
                 changeQty(item, d) {
-                    item.qty += d;
+                    let newQty = item.qty + d;
+                    // if (newQty < 1) return;
+
+                    axios.post('api.php?action=updateCart', {
+                        product_id: item.product_id,
+                        qty: newQty
+                    }).then(res => {
+                        if (res.data.success) {
+                            this.cart = res.data.cart;
+                        }
+                    });
                 },
 
                 /*** Auth ***/
@@ -713,10 +700,7 @@ session_start();
                         } else alert(res.data.msg);
                     })
                 },
-                toProducts(id) {
 
-                    location.href = "product_details.php?product_id=" + id;
-                }
 
 
             },
@@ -725,9 +709,18 @@ session_start();
                 axios.get("api.php?action=session").then(res => {
                     if (res.data.logged) this.user = res.data.user;
                 });
-                axios.get("api.php?action=products").then(res => this.products = res.data);
+                axios.post("api.php?action=logproducts", {
+                    product_id: product_id
+                }).then(res => {
+                    // console.log(res)
+                    if (res.data.success) {
+                        this.product = res.data.product;
+                        // bootstrap.Modal.getInstance(document.getElementById('authModal')).hide();
+                    }
+                });
+                // axios.get("api.php?action=products").then(res => this.products = res.data);
                 axios.get("api.php?action=categories").then(res => this.categories = res.data);
-
+                this.loadCart(); // 載入購物車
             },
             watch: {
                 // 當分類或搜尋文字改變時，自動回到第 1 頁
