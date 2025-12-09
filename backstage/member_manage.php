@@ -50,10 +50,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sql = "
                     INSERT INTO customer
                         (name, email, password, phone, address_line1, address_line2,
-                         district, city, postal_code, membership_level_id, points)
+                         district, city, postal_code , points)
                     VALUES
                         (:name, :email, :password, :phone, :addr1, :addr2,
-                         :district, :city, :postal_code, :level_id, :points)
+                         :district, :city, :postal_code,  :points)
                 ";
                 $stmt = $pdo->prepare($sql);
                 $ok = $stmt->execute([
@@ -66,7 +66,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ':district'    => $district,
                     ':city'        => $city,
                     ':postal_code' => $postal_code,
-                    ':level_id'    => $level_id,
                     ':points'      => $points,
                 ]);
                 $message = $ok ? '會員新增成功！' : '新增會員失敗。';
@@ -84,7 +83,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             district = :district,
                             city = :city,
                             postal_code = :postal_code,
-                            membership_level_id = :level_id,
                             points = :points
                         WHERE customer_id = :id
                     ";
@@ -98,7 +96,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':district'    => $district,
                         ':city'        => $city,
                         ':postal_code' => $postal_code,
-                        ':level_id'    => $level_id,
                         ':points'      => $points,
                         ':id'          => $customer_id,
                     ];
@@ -113,7 +110,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             district = :district,
                             city = :city,
                             postal_code = :postal_code,
-                            membership_level_id = :level_id,
                             points = :points
                         WHERE customer_id = :id
                     ";
@@ -126,7 +122,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ':district'    => $district,
                         ':city'        => $city,
                         ':postal_code' => $postal_code,
-                        ':level_id'    => $level_id,
                         ':points'      => $points,
                         ':id'          => $customer_id,
                     ];
@@ -168,7 +163,13 @@ if (isset($_GET['edit_id'])) {
 $sql = "
     SELECT c.*, ml.level_name
     FROM customer c
-    LEFT JOIN membership_level ml ON c.membership_level_id = ml.level_id
+    LEFT JOIN membership_level ml
+        ON c.points >= ml.threshold_amount
+    WHERE ml.threshold_amount = (
+        SELECT MAX(threshold_amount) 
+        FROM membership_level 
+        WHERE threshold_amount <= c.points
+    )
     ORDER BY c.customer_id ASC
 ";
 $members = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);

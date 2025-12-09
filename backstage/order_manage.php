@@ -46,7 +46,7 @@ $sql = "
         o.order_id,
         o.order_date,
         o.total_amount,
-        o.point_used,
+        o.point_add,
         c.name AS customer_name,
         p.payment_id,
         p.payment_method,
