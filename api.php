@@ -62,14 +62,14 @@ if ($action === "register") {
     // 檢查 email 是否已存在
     $chk = fetch(query("SELECT * FROM customer WHERE email='{$email}'"));
     if ($chk) {
-        echo json_encode(['success' => false, 'msg' => 'Email 已存在']);
+        echo json_encode(['success' => false, 'msg' => '此信箱已註冊']);
         exit;
     }
 
     $hash = password_hash($password, PASSWORD_DEFAULT);
 
-    query("INSERT INTO `customer`(`customer_id`, `name`, `email`, `password`, `phone`, `address_line1`, `address_line2`, `district`, `city`, `postal_code`, `membership_level_id`, `points`) VALUES
-            (null,'{$username}','{$email}','{$hash}','','','','','','','1','0')");
+    query("INSERT INTO `customer`(`customer_id`, `name`, `email`, `password`, `phone`, `address_line1`, `address_line2`, `district`, `city`, `postal_code`,  `points`) VALUES
+            (null,'{$username}','{$email}','{$hash}','','','','','','','0')");
 
 
 
@@ -91,7 +91,7 @@ if ($action === "login") {
         echo json_encode(['success' => false, 'msg' => '請輸入帳密']);
         exit;
     }
-    
+
     $u = fetch(query("SELECT * FROM customer WHERE email='{$email}'"));
     if (!$u) {
         echo json_encode(['success' => false, 'msg' => '帳號不存在']);
@@ -191,7 +191,7 @@ if ($action === 'forgot') {
 
     // 產生新 token
     $token  = bin2hex(random_bytes(32));
-    $expiry = (new DateTime('+1 hour'))->format('Y-m-d H:i:s');
+    $expiry = (new DateTime('+15 minutes'))->format('Y-m-d H:i:s');
 
     $ins = $pdo->prepare("
         INSERT INTO reset_token (customer_id, token, expiry_time)
@@ -231,12 +231,12 @@ if ($action === 'forgot') {
 
         $mail->Body = "
             <p>{$customerName} 您好：</p>
-            <p>請點擊以下連結重設您的密碼（1 小時內有效）：</p>
+            <p>請點擊以下連結重設您的密碼（15分鐘內有效）：</p>
             <p><a href='{$resetLink}' target='_blank'>{$resetLink}</a></p>
             <p>如果您沒有申請重設密碼，請忽略此封信。</p>
         ";
 
-        $mail->AltBody = "您好：\n\n請點擊以下連結重設您的密碼（1 小時內有效）：\n{$resetLink}\n\n如果您沒有申請重設密碼，請忽略此封信。";
+        $mail->AltBody = "您好：\n\n請點擊以下連結重設您的密碼（15分鐘內有效）：\n{$resetLink}\n\n如果您沒有申請重設密碼，請忽略此封信。";
 
         // 若想查看詳細錯誤，可暫時開啟：
         // $mail->SMTPDebug = 2;
@@ -273,7 +273,7 @@ if ($action === "checkout") {
     $cart = $body['cart'] ?? [];
     $total = $body['total'] ?? 0;
     $payment_id = $body['payment_id'] ?? 1; // 1=刷卡, 2=現金
-    $point_used = floor($total / 100);
+    $point_add = floor($total / 100);
 
     if (!$cart) {
         echo json_encode(['success' => false, 'msg' => '購物車為空']);
@@ -286,29 +286,50 @@ if ($action === "checkout") {
 
 
         // 1️⃣ 建立訂單
-        $stmt = $pdo->prepare("INSERT INTO `order`(`customer_id`, `order_date`, `total_amount`, `payment_id`, `point_used`) 
-                          VALUES (?, NOW(), ?, ?, ?)");
-        $stmt->execute([$user_id, $total, $payment_id, $point_used]);
+        $stmt = $pdo->prepare("
+            INSERT INTO `order`
+            (`customer_id`, `order_date`, `total_amount`, `payment_id`, `point_add`)
+            VALUES (?, NOW(), ?, ?, ?)
+        ");
+        $stmt->execute([$user_id, $total, $payment_id, $point_add]);
         $order_id = $pdo->lastInsertId();
 
         // 2️⃣ 建立訂單明細 & 扣庫存
-        $stmtDetail = $pdo->prepare("INSERT INTO `order_detail`(`order_id`,`product_id`,`quantity`,`unit_price`) VALUES (?,?,?,?)");
-        $stmtStock = $pdo->prepare("UPDATE `product` SET stock = stock - ? WHERE product_id = ? AND stock >= ?");
+        $stmtDetail = $pdo->prepare("
+            INSERT INTO `order_detail`
+            (`order_id`, `product_id`, `quantity`, `unit_price`)
+            VALUES (?,?,?,?)
+        ");
+
+        $stmtStock = $pdo->prepare("
+            UPDATE `product`
+            SET stock = stock - ?
+            WHERE product_id = ? AND stock >= ?
+        ");
 
         foreach ($cart as $item) {
-            $stmtDetail->execute([$order_id, $item['product_id'], $item['qty'], $item['price']]);
 
-            // 扣庫存
-            $stmtStock->execute([$item['qty'], $item['product_id'], $item['qty']]);
+            $product_id = $item["product_id"];
+            $qty        = $item["quantity"];
+            $price      = $item["price"];
+
+            // 2-1: insert detail
+            $stmtDetail->execute([$order_id, $product_id, $qty, $price]);
+
+            // 2-2: update MySQL stock
+            $stmtStock->execute([$qty, $product_id, $qty]);
+
             if ($stmtStock->rowCount() === 0) {
                 throw new Exception("商品 {$item['product_name']} 庫存不足");
             }
         }
-
         // 3️⃣ 增加會員點數 (假設 1 元 = 1 點)
-        $pointsEarned = intval($total + $point_used);
-        $stmtPoints = $pdo->prepare("UPDATE `customer` SET points = points + ? WHERE customer_id = ?");
-        $stmtPoints->execute([$pointsEarned, $user_id]);
+        $stmtPoints = $pdo->prepare("
+            UPDATE customer
+            SET points = points + ?
+            WHERE customer_id = ?
+        ");
+        $stmtPoints->execute([$point_add, $user_id]);
 
         // 3. 付款驗證 (簡單範例)
         if ($payment_id == 1) {
@@ -323,7 +344,8 @@ if ($action === "checkout") {
 
 
         // 清空 SESSION 購物車
-        $_SESSION['cart'] = [];
+        $stmt = $pdo->prepare("DELETE FROM cart_item WHERE customer_id = ?");
+        $stmt->execute([$user_id]);
 
         echo json_encode([
             'success' => true,
@@ -353,13 +375,26 @@ if ($action === "getProfile") {
     }
 
     $uid = $_SESSION['user']['id'];
+    $res = fetch(query("
+    SELECT c.*, l.level_id, l.level_name, l.threshold_amount 
+    FROM customer c 
+    LEFT JOIN membership_level l 
+    ON c.points >= l.threshold_amount WHERE c.customer_id='{$uid}' ORDER BY l.threshold_amount DESC LIMIT 1;"));
+    //     $stmt = $pdo->prepare("
+    //     SELECT c.*, l.level_id, l.level_name, l.threshold_amount 
+    //     FROM customer c 
+    //     LEFT JOIN membership_level l 
+    //     ON c.points >= l.threshold_amount WHERE c.customer_id='' ORDER BY l.threshold_amount DESC LIMIT 1;
 
-    $u = fetch(query("SELECT * FROM customer WHERE customer_id = {$uid}"));
+    // ");
+    //     $stmt->execute([$uid]);
+    //     $profile = $stmt->fetch(PDO::FETCH_ASSOC);
 
     echo json_encode([
         'success' => true,
-        'profile' => $u
+        'profile' => $res
     ]);
+
     exit;
 }
 
@@ -415,38 +450,40 @@ if ($action === "logproducts") {
 // 新增商品到購物車
 // ----------------------------------------------
 if ($action === 'addToCart') {
+    $customer_id = $_SESSION['user']['id'];
+    $product_id = intval($body['product_id'] ?? 0);
+    $qty = intval($body['qty'] ?? 1);
 
-    $product_id = $body['product_id'] ?? 0;
-    $qty = max(1, intval($body['qty'] ?? 1));
-
-    if (!$product_id) {
-        echo json_encode(['success' => false, 'msg' => '商品ID錯誤']);
+    if ($product_id <= 0 || $qty <= 0) {
+        echo json_encode(['success' => false, 'msg' => '參數錯誤']);
         exit;
     }
 
-    // 取得商品資訊
-    $res = fetch(query("SELECT * FROM `product` WHERE `product_id`='{$product_id}'"));
-    if (!$res) {
-        echo json_encode(['success' => false, 'msg' => '找不到商品']);
-        exit;
-    }
+    // 1️⃣ 先確認購物車中是否已存在該商品
+    $stmt = $pdo->prepare("SELECT * FROM cart_item WHERE customer_id=? AND product_id=?");
+    $stmt->execute([$customer_id, $product_id]);
+    $item = $stmt->fetch();
 
-    // 初始化購物車
-    if (!isset($_SESSION['cart'])) $_SESSION['cart'] = [];
-
-    // 若已存在購物車就增加數量
-    if (isset($_SESSION['cart'][$product_id])) {
-        $_SESSION['cart'][$product_id]['qty'] += $qty;
+    if ($item) {
+        // 已存在 -> 更新數量
+        $stmt = $pdo->prepare("UPDATE cart_item SET quantity=quantity+? WHERE cart_item_id=?");
+        $stmt->execute([$qty, $item['cart_item_id']]);
     } else {
-        $_SESSION['cart'][$product_id] = [
-            'product_id' => $res['product_id'],
-            'product_name' => $res['product_name'],
-            'price' => $res['price'],
-            'qty' => $qty,
-        ];
+        // 新增
+        $stmt = $pdo->prepare("INSERT INTO cart_item (customer_id, product_id, quantity)
+                               VALUES (?, ?, ?)");
+        $stmt->execute([$customer_id, $product_id, $qty]);
     }
 
-    echo json_encode(['success' => true, 'cart' => array_values($_SESSION['cart'])]);
+    // 回傳最新購物車
+    $stmt = $pdo->prepare("SELECT c.*, p.product_name, p.price 
+                           FROM cart_item c
+                           JOIN product p ON c.product_id = p.product_id
+                           WHERE c.customer_id=?");
+    $stmt->execute([$customer_id]);
+    $cart = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode(['success' => true, 'cart' => $cart]);
     exit;
 }
 
@@ -456,8 +493,15 @@ if ($action === 'addToCart') {
 // 取得購物車
 // ----------------------------------------------
 if ($action === 'getCart') {
-    if (!isset($_SESSION['cart'])) $_SESSION['cart'] = [];
-    echo json_encode(['success' => true, 'cart' => array_values($_SESSION['cart'])]);
+    $customer_id = $_SESSION['user']['id'];
+    $stmt = $pdo->prepare("SELECT c.*, p.product_name, p.price 
+                           FROM cart_item c
+                           JOIN product p ON c.product_id = p.product_id
+                           WHERE c.customer_id=?");
+    $stmt->execute([$customer_id]);
+    $cart = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode(['success' => true, 'cart' => $cart]);
     exit;
 }
 
@@ -467,20 +511,51 @@ if ($action === 'getCart') {
 // 更新購物車數量
 // ----------------------------------------------
 if ($action === 'updateCart') {
-    $product_id = $body['product_id'] ?? 0;
-    $qty = intval($body['qty'] ?? 1);
+    $product_id = intval($body['product_id'] ?? 0);
+    $customer_id = $_SESSION['user']['id'];
+    $qty = intval($body['qty'] ?? 0);
 
-    if (isset($_SESSION['cart'][$product_id])) {
-        if ($qty <= 0) {
-            unset($_SESSION['cart'][$product_id]); // 刪除
-        } else {
-            $_SESSION['cart'][$product_id]['qty'] = $qty;
-        }
+    if ($product_id <= 0) {
+        echo json_encode(['success' => false, 'msg' => '參數錯誤']);
+        exit;
     }
 
-    echo json_encode(['success' => true, 'cart' => array_values($_SESSION['cart'])]);
+    if ($qty <= 0) {
+        // 刪除
+        $stmt = $pdo->prepare("DELETE FROM cart_item WHERE customer_id=? AND product_id=?");
+        $stmt->execute([$customer_id, $product_id]);
+    } else {
+        // 更新
+        $stmt = $pdo->prepare("UPDATE cart_item SET quantity=? WHERE customer_id=? AND product_id=?");
+        $stmt->execute([$qty, $customer_id, $product_id]);
+    }
+
+    // 回傳最新購物車
+    $stmt = $pdo->prepare("SELECT c.*, p.product_name, p.price 
+                           FROM cart_item c
+                           JOIN product p ON c.product_id = p.product_id
+                           WHERE c.customer_id=?");
+    $stmt->execute([$customer_id]);
+    $cart = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    echo json_encode(['success' => true, 'cart' => $cart]);
     exit;
 }
+
+
+
+// ----------------------------------------------
+// 刪除購物車
+// ----------------------------------------------
+if ($action === 'clearCart') {
+    $customer_id = $_SESSION['user']['id'];
+    $stmt = $pdo->prepare("DELETE FROM cart_item WHERE customer_id=?");
+    $stmt->execute([$customer_id]);
+    echo json_encode(['success' => true, 'cart' => []]);
+    exit;
+}
+
+
 
 
 

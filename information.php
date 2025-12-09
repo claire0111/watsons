@@ -93,9 +93,8 @@ session_start();
                     <!-- 會員文字資訊 -->
                     <div class="flex-grow-1">
                         <h4 class="mb-1">{{ profile.name }} 的會員卡</h4>
-                        <p class="mb-1">等級：<strong>{{ profile.membership_level_id==1?"銀卡":profile.membership_level_id==2?"金卡":"白金卡"  }}</strong></p>
+                        <p class="mb-1">等級：<strong>{{ profile.level_name}}</strong></p>
                         <p class="mb-1">目前點數：<strong>{{ profile.points }}</strong> 點</p>
-                        <small class="text-muted">{{ levelDescription }}</small>
                     </div>
                 </div>
 
@@ -104,7 +103,7 @@ session_start();
                     <h5 class="fw-bold mb-3">升級進度</h5>
 
                     <div class="mb-2 d-flex justify-content-between">
-                        <span>{{ profile.membership_level_id==1?"銀卡":profile.membership_level_id==2?"金卡":"白金卡" }} → {{ nextLevel }}</span>
+                        <span>{{ profile.level_name }} → {{ nextLevel }}</span>
                         <span v-if="nextLevel !== '已達最高等級'">
                             還差 <strong>{{ pointsToNext }}</strong> 點
                         </span>
@@ -213,17 +212,21 @@ session_start();
                         postal_code: "",
                         address_line1: "",
                         address_line2: "",
-                        membership_level_id: "",
                         points: ""
                     },
-                    levelDescription: '' // 初始值
                 }
             },
             computed: {
+                // 依照點數判斷會員等級
+                membershipLevel() {
+                    const pts = this.profile.points || 0;
+                    if (pts >= 20001) return 3; // 白金卡
+                    if (pts >= 5001) return 2; // 金卡
+                    return 1; // 銀卡
+                },
+
                 cardImage() {
-                    console.log(this.profile.membership_level_id)
-                    // 根據等級回傳對應圖片
-                    switch (this.profile.membership_level_id) {
+                    switch (this.membershipLevel) {
                         case 1:
                             return "src/銀卡.png";
                         case 2:
@@ -234,65 +237,50 @@ session_start();
                             return "src/銀卡.png";
                     }
                 },
-                levelDescription() {
-                    // console.log(this.profile.membership_level_id)
-                    // 顯示每個等級的條件
-                    switch (this.profile.membership_level_id) {
+
+
+                nextLevel() {
+                    switch (this.membershipLevel) {
                         case 1:
-                            return "銀卡條件：累積消費 0 - 2999 點數";
+                            return "金卡";
                         case 2:
-                            return "金卡條件：累積消費 3000 - 6999 點數";
+                            return "白金卡";
                         case 3:
-                            return "白金卡條件：累積消費 7000 點以上";
-                        default:
-                            return "";
+                            return "已達最高等級";
                     }
                 },
-                /* 下一個等級 */
-                nextLevel() {
-                    if (this.profile.membership_level_id === 1) return "金卡";
-                    if (this.profile.membership_level_id === 2) return "白金卡";
-                    return "已達最高等級";
-                },
 
-                /* 升級點數的範圍 */
                 levelRanges() {
                     return {
                         1: {
                             min: 0,
-                            max: 3000
+                            max: 5000
                         },
                         2: {
-                            min: 3000,
-                            max: 7000
+                            min: 5001,
+                            max: 20000
                         },
                         3: {
-                            min: 7000,
-                            max: 7000
+                            min: 20001,
+                            max: 20001
                         } // 封頂
                     };
                 },
 
-                /* 距離下一級還差多少點 */
                 pointsToNext() {
-                    if (this.profile.membership_level_id === "白金卡") return 0;
-                    const nextMax = this.levelRanges[this.profile.membership_level_id].max;
+                    if (this.membershipLevel === 3) return 0;
+                    const nextMax = this.levelRanges[this.membershipLevel].max;
                     return Math.max(0, nextMax - this.profile.points);
                 },
 
-                /* 百分比進度條（0–100%） */
                 progressPercent() {
-                    const range = this.levelRanges[this.profile.membership_level_id] || {
-                        min: 0,
-                        max: 1
-                    };
-                    if (this.profile.membership_level_id === "白金卡") return 100;
-
+                    if (this.membershipLevel === 3) return 100;
+                    const range = this.levelRanges[this.membershipLevel];
                     const gained = this.profile.points - range.min;
                     const total = range.max - range.min;
-
                     return Math.min(100, Math.max(0, (gained / total) * 100));
-                }
+                },
+
             },
             methods: {
                 logout() {
@@ -348,7 +336,6 @@ session_start();
 
             },
             mounted() {
-                this.levelDescription = '銀卡：累積 0~1999 點';
                 // 取得登入者
                 axios.get("api.php?action=session").then(res => {
                     if (res.data.logged) {
@@ -362,7 +349,7 @@ session_start();
                         this.profile = res.data.profile;
                         if (this.profile.city != undefined) {
                             const cityData = this.cities.find(c => c.city === this.profile.city);
-                            console.log(this.profile.city);
+                            // console.log(this.profile.city);
                             this.districts = cityData ? cityData.districts : [];
                         }
                     }

@@ -52,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 <!DOCTYPE html>
 <html lang="zh-Hant">
+
 <head>
     <meta charset="UTF-8">
     <title>後台登入 - 屈臣氏藥妝平台</title>
@@ -64,27 +65,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             justify-content: center;
             min-height: 100vh;
         }
+
         .login-container {
             background: #fff;
             padding: 32px 40px;
             border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0,0,0,.08);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .08);
             width: 360px;
         }
+
         h1 {
             margin-top: 0;
             margin-bottom: 16px;
             font-size: 22px;
             text-align: center;
         }
+
         .field {
             margin-bottom: 16px;
         }
+
         label {
             display: block;
             margin-bottom: 4px;
             font-size: 14px;
         }
+
         input[type="text"],
         input[type="password"] {
             width: 100%;
@@ -94,8 +100,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-size: 14px;
             box-sizing: border-box;
         }
+
         button {
-            width: 100%;
+            width: 45%;
             padding: 10px;
             border-radius: 6px;
             border: none;
@@ -104,6 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background: #0080ff;
             color: #fff;
         }
+
         .error {
             margin-bottom: 12px;
             padding: 8px;
@@ -112,6 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             border-radius: 6px;
             font-size: 13px;
         }
+
         .hint {
             margin-top: 12px;
             font-size: 12px;
@@ -120,29 +129,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     </style>
 </head>
+
 <body>
-<div class="login-container">
-    <h1>後台管理登入</h1>
+    <div class="login-container">
+        <h1>後台管理登入</h1>
 
-    <?php if ($error): ?>
-        <div class="error"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div>
-    <?php endif; ?>
+        <?php if ($error): ?>
+            <div class="error"><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></div>
+        <?php endif; ?>
 
-    <form method="post">
-        <div class="field">
-            <label for="username">帳號</label>
-            <input type="text" id="username" name="username" required>
+        <form method="post">
+            <div class="field">
+                <label for="username">帳號</label>
+                <input type="text" id="username" name="username" required>
+            </div>
+            <div class="field">
+                <label for="password">密碼</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            <div align="center">
+                <button type="button" onclick="location.href='../index.php'">回商店頁</button>&emsp;<button type="submit">登入</button>
+            </div>
+
+
+
+        </form>
+
+        <div class="hint">
+            提示：請先在 admin 資料表設定好 username / password（hash）。
         </div>
-        <div class="field">
-            <label for="password">密碼</label>
-            <input type="password" id="password" name="password" required>
-        </div>
-        <button type="submit">登入</button>
-    </form>
-
-    <div class="hint">
-        提示：請先在 admin 資料表設定好 username / password（hash）。
     </div>
-</div>
 </body>
+
 </html>

@@ -20,8 +20,8 @@ console.log('Connected to Redis!');
 // ---------------- MySQL 連線 ----------------
 const conn = await mysql.createConnection({
   host: 'localhost',
-  user: 'dbhw',           // 你的 MySQL 帳號
-  password: '0502',     // 你的 MySQL 密碼
+  user: 'root',           // 你的 MySQL 帳號
+  password: '',     // 你的 MySQL 密碼
   database: 'watsons_db'  // 資料庫名稱
 });
 
