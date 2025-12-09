@@ -7,6 +7,13 @@ ini_set('display_errors', 1);
 $action = $_GET['action'] ?? '';
 $body = json_decode(file_get_contents("php://input"), true);
 
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+// 匯入 PHPMailer (你下載的版本目錄)
+require __DIR__ . '/PHPMailer-master/src/PHPMailer.php';
+require __DIR__ . '/PHPMailer-master/src/SMTP.php';
+require __DIR__ . '/PHPMailer-master/src/Exception.php';
 
 // ----------------------------------------------
 // 取得商品
@@ -84,7 +91,7 @@ if ($action === "login") {
         echo json_encode(['success' => false, 'msg' => '請輸入帳密']);
         exit;
     }
-
+    
     $u = fetch(query("SELECT * FROM customer WHERE email='{$email}'"));
     if (!$u) {
         echo json_encode(['success' => false, 'msg' => '帳號不存在']);
@@ -145,71 +152,107 @@ if ($action === "logout") {
 // ----------------------------------------------
 // 忘記密碼（示範）
 // ----------------------------------------------
-// if ($action === "forgot") {
-//     $email = $body['email'] ?? '';
-//     echo json_encode(['success' => true, 'msg' => "重設密碼連結已寄送至 $email"]);
-//     exit;
-// }
+// 忘記密碼：產生 token 寄信
+if ($action === 'forgot') {
+    // 讀取 Axios 傳來的 JSON
+    $body  = json_decode(file_get_contents('php://input'), true);
+    $email = trim($body['email'] ?? '');
 
-if ($action === "forgot") {
-
-    // 接收 JSON
-    // $body = json_decode(file_get_contents("php://input"), true);
-
-    if (!$body || empty($body["email"])) {
-        echo json_encode(["success" => false, "message" => "缺少 email"]);
+    if ($email === '') {
+        echo json_encode([
+            'success' => false,
+            'message' => '請輸入 Email'
+        ]);
         exit;
     }
 
-    $email = $body["email"];
+    // 看這信箱有沒有註冊過
+    $stmt = $pdo->prepare("SELECT customer_id, name FROM customer WHERE email = :email LIMIT 1");
+    $stmt->execute([':email' => $email]);
+    $customer = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    // 查詢 email 是否存在
-    $stmt = $pdo->prepare("SELECT customer_id, name FROM customer WHERE email = ?");
-    $stmt->execute([$email]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    // 為了安全：即使查無此信箱，也回同一句話
+    $genericMessage = '如果此 Email 有註冊，我們已寄出重設密碼信件，請檢查信箱。';
 
-    if (!$user) {
-        echo json_encode(["success" => false, "message" => "此 email 未註冊"]);
+    if (!$customer) {
+        echo json_encode([
+            'success' => true,
+            'message' => $genericMessage
+        ]);
         exit;
     }
 
-    $customerId = $user["customer_id"];
+    $customerId   = $customer['customer_id'];
+    $customerName = $customer['name'] ?? '會員';
 
-    // 產生 token
-    $token = bin2hex(random_bytes(32));
-    $expires = date("Y-m-d H:i:s", time() + 900); // 15 分鐘有效
+    // 刪掉舊 token
+    $del = $pdo->prepare("DELETE FROM reset_token WHERE customer_id = :cid");
+    $del->execute([':cid' => $customerId]);
 
-    // 寫入資料庫
-    $stmt = $pdo->prepare("
+    // 產生新 token
+    $token  = bin2hex(random_bytes(32));
+    $expiry = (new DateTime('+1 hour'))->format('Y-m-d H:i:s');
+
+    $ins = $pdo->prepare("
         INSERT INTO reset_token (customer_id, token, expiry_time)
-        VALUES (?, ?, ?)
+        VALUES (:cid, :token, :exp)
     ");
-    $stmt->execute([$customerId, $token, $expires]);
+    $ins->execute([
+        ':cid'   => $customerId,
+        ':token' => $token,
+        ':exp'   => $expiry
+    ]);
 
-    // 發送 email
-    require "vendor/autoload.php";
-    $mail = new PHPMailer\PHPMailer\PHPMailer();
+    // 這個連結你之前已經測試過可用
+    $resetLink = "http://localhost/watsons/reset_password.php?token=" . urlencode($token);
+    // ====== 使用 PHPMailer 寄信 ======
+    $mail = new PHPMailer(true);
 
-    $mail->isSMTP();
-    $mail->Host = "smtp.gmail.com";
-    $mail->SMTPAuth = true;
-    $mail->Username = "你的gmail帳號";
-    $mail->Password = "你的應用程式密碼";
-    $mail->SMTPSecure = "tls";
-    $mail->Port = 587;
+    try {
+        // SMTP 伺服器設定（以 Gmail 為例）
+        $mail->isSMTP();
+        $mail->Host       = 'smtp.gmail.com';
+        $mail->SMTPAuth   = true;
+        $mail->Username   = 'liucindy058@gmail.com';   // TODO：改成你自己的 Gmail
+        $mail->Password   = 'hnfp evgh bbvr lxir';       // TODO：改成 16 碼 App Password
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port       = 587;
 
-    $mail->setFrom("你的gmail帳號", "Watsons 客服中心");
-    $mail->addAddress($email);
+        // 編碼
+        $mail->CharSet = 'UTF-8';
 
-    $mail->Subject = "Watsons 密碼重設通知";
-    $mail->Body = "請點擊以下連結重設密碼：\n\nhttp://localhost/watsons/reset_password.php?token=$token\n\n連結15分鐘內有效。";
+        // 寄件人 / 收件人
+        $mail->setFrom('liucindy058@gmail.com', 'Watsons Demo'); // 寄件人
+        $mail->addAddress($email, $customerName);              // 收件人
 
-    if ($mail->send()) {
-        echo json_encode(["success" => true, "message" => "已寄出重設密碼信"]);
-    } else {
-        echo json_encode(["success" => false, "message" => "寄信失敗：" . $mail->ErrorInfo]);
+        // 內容
+        $mail->isHTML(true);
+        $mail->Subject = '屈臣氏購物平台 - 重設密碼連結';
+
+        $mail->Body = "
+            <p>{$customerName} 您好：</p>
+            <p>請點擊以下連結重設您的密碼（1 小時內有效）：</p>
+            <p><a href='{$resetLink}' target='_blank'>{$resetLink}</a></p>
+            <p>如果您沒有申請重設密碼，請忽略此封信。</p>
+        ";
+
+        $mail->AltBody = "您好：\n\n請點擊以下連結重設您的密碼（1 小時內有效）：\n{$resetLink}\n\n如果您沒有申請重設密碼，請忽略此封信。";
+
+        // 若想查看詳細錯誤，可暫時開啟：
+        // $mail->SMTPDebug = 2;
+        // $mail->Debugoutput = 'error_log';
+
+        $mail->send();
+    } catch (Exception $e) {
+        // 不回傳給前端，但記錄伺服器 log，方便 debug
+        error_log('PHPMailer Error: ' . $mail->ErrorInfo);
+        // 就算寄信失敗，也不要暴露給使用者細節
     }
 
+    echo json_encode([
+        'success' => true,
+        'message' => $genericMessage
+    ]);
     exit;
 }
 
@@ -225,23 +268,75 @@ if ($action === "checkout") {
         exit;
     }
 
+
+    $user_id = $_SESSION['user']['id'];
     $cart = $body['cart'] ?? [];
     $total = $body['total'] ?? 0;
+    $payment_id = $body['payment_id'] ?? 1; // 1=刷卡, 2=現金
+    $point_used = floor($total / 100);
 
     if (!$cart) {
         echo json_encode(['success' => false, 'msg' => '購物車為空']);
         exit;
     }
 
-    // (可加上寫入資料庫)
-    $_SESSION['orders'][] = [
-        'user' => $_SESSION['user'],
-        'cart' => $cart,
-        'total' => $total,
-        'created_at' => date("Y-m-d H:i:s")
-    ];
 
-    echo json_encode(['success' => true]);
+    try {
+        $pdo->beginTransaction();
+
+
+        // 1️⃣ 建立訂單
+        $stmt = $pdo->prepare("INSERT INTO `order`(`customer_id`, `order_date`, `total_amount`, `payment_id`, `point_used`) 
+                          VALUES (?, NOW(), ?, ?, ?)");
+        $stmt->execute([$user_id, $total, $payment_id, $point_used]);
+        $order_id = $pdo->lastInsertId();
+
+        // 2️⃣ 建立訂單明細 & 扣庫存
+        $stmtDetail = $pdo->prepare("INSERT INTO `order_detail`(`order_id`,`product_id`,`quantity`,`unit_price`) VALUES (?,?,?,?)");
+        $stmtStock = $pdo->prepare("UPDATE `product` SET stock = stock - ? WHERE product_id = ? AND stock >= ?");
+
+        foreach ($cart as $item) {
+            $stmtDetail->execute([$order_id, $item['product_id'], $item['qty'], $item['price']]);
+
+            // 扣庫存
+            $stmtStock->execute([$item['qty'], $item['product_id'], $item['qty']]);
+            if ($stmtStock->rowCount() === 0) {
+                throw new Exception("商品 {$item['product_name']} 庫存不足");
+            }
+        }
+
+        // 3️⃣ 增加會員點數 (假設 1 元 = 1 點)
+        $pointsEarned = intval($total + $point_used);
+        $stmtPoints = $pdo->prepare("UPDATE `customer` SET points = points + ? WHERE customer_id = ?");
+        $stmtPoints->execute([$pointsEarned, $user_id]);
+
+        // 3. 付款驗證 (簡單範例)
+        if ($payment_id == 1) {
+            // 模擬刷卡驗證
+            $paid = true; // 假設刷卡成功
+            if (!$paid) {
+                throw new Exception("刷卡失敗");
+            }
+        }
+
+        $pdo->commit();
+
+
+        // 清空 SESSION 購物車
+        $_SESSION['cart'] = [];
+
+        echo json_encode([
+            'success' => true,
+            'order_id' => $order_id,
+        ]);
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        echo json_encode([
+            'success' => false,
+            'msg' => $e->getMessage()
+        ]);
+    }
+
     exit;
 }
 
@@ -308,7 +403,7 @@ if ($action === "logproducts") {
     $res["picture"] = "src/products/{$res['category_id']}/{$res['product_id']}.jpg";
     echo json_encode([
         'success' => true,
-        'product' => $res 
+        'product' => $res
     ]);
 
     exit;
@@ -386,6 +481,8 @@ if ($action === 'updateCart') {
     echo json_encode(['success' => true, 'cart' => array_values($_SESSION['cart'])]);
     exit;
 }
+
+
 
 // ----------------------------------------------
 echo json_encode(['success' => false, 'msg' => 'Unknown Action']);

@@ -4,7 +4,7 @@ session_start();
 require_once 'db.php';
 require_once 'permission.php';
 
-requirePermission(4); // 4 = view_admin_menage
+requirePermission(3); // 4 = view_admin_menage
 
 // 未登入就踢回登入頁
 if (!isset($_SESSION['admin_id'])) {
@@ -132,6 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $pdo->commit();
                 $message = '角色權限已更新。';
+                
             } catch (PDOException $e) {
                 $pdo->rollBack();
                 $message = '更新權限失敗：' . $e->getMessage();

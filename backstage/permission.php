@@ -1,5 +1,6 @@
 <?php
 // permission.php
+// session_start();
 require_once 'db.php';
 
 function hasPermission($role_id, $permission_id) {
@@ -31,7 +32,8 @@ function requirePermission($permission_id) {
 
     if (!hasPermission($role_id, $permission_id)) {
         // 可自行美化
-        echo "<script>alert('您沒有權限進入此頁面！'); window.location='admin_dashboard.php';</script>";
+        echo "<script>alert('{$role_id} {$permission_id}'); window.location='admin_dashboard.php';</script>";
+        // echo "<script>alert('您沒有權限進入此頁面！'); window.location='admin_dashboard.php';</script>";
         exit;
     }
 }

@@ -360,105 +360,40 @@ session_start();
                     <div class="product-name">
                         {{ product ? product.product_name:"" }}
                     </div>
+                    <p>庫存：{{ product ? product.stock:"" }}</p>
                     <div class="product-price">
                         NT$ {{ product ? product.price:"" }}
                     </div><br />
-                    <button class="btn btn-primary w-100" @click="addToCart()">加入購物車</button>
+                    <button class="btn btn-primary w-100" @click="addToCart()" :disabled="!canOrder">{{canOrder ? '加入購物車' : '庫存不足' }}</button>
                 </div>
             </div>
             <div class="review-section">
-                <div class="review-header">商品評論</div>
-                <button class="write-review-button" onclick="openReviewModal()">撰寫評論</button>
+                <h4>商品評論</h4>
 
-                <div class="review-content">
-                    <div class="average-rating">
-                        <div class="rating-number"><?php //echo $average_rating; 
-                                                    ?></div>
-                        <div class="empty-stars" style="color: #ffc107;">
-                            <?php //echo renderStars($average_rating); 
-                            ?>
+                <!-- 新增評論 -->
+                <div class="mb-3">
+                    <label>評分：</label>
+                    <span v-for="r in 5" @click="setRating(r)"
+                        :style="{cursor:'pointer', color: r <= newReview.rating ? '#ffc107' : '#ccc'}">★</span>
+                </div>
+                <textarea v-model="newReview.comment" placeholder="輸入您的評論" class="form-control mb-2"></textarea>
+                <button class="btn btn-primary mb-3" @click="submitReview">提交評論</button>
+
+                <!-- 評論列表 -->
+                <div v-if="reviews.length === 0" style="color:#999;">目前尚無評論。</div>
+                <div v-else>
+                    <div v-for="r in reviews" :key="r._id" class="border-bottom py-2">
+                        <div>
+                            <strong>{{ r.customer_name }}</strong>
+                            <span style="color:#ffc107">{{ '★'.repeat(r.rating) + '☆'.repeat(5-r.rating) }}</span>
+                            <small class="text-muted">{{ new Date(r.created_at).toLocaleString() }}</small>
                         </div>
-                    </div>
-
-                    <div class="rating-breakdown">
-                        <?php
-                        for ($star = 5; $star >= 1; $star--) {
-                            $count = $star_counts[$star];
-                            $percentage = ($total_reviews > 0) ? ($count / $total_reviews) * 100 : 0;
-                        ?>
-                            <div class="rating-row">
-                                <span class="rating-stars">
-                                    <?php //echo renderStars($star); 
-                                    ?>
-                                </span>
-                                <div class="rating-bar-wrapper">
-                                    <div class="rating-bar" style="width: <?php //echo $percentage; 
-                                                                            ?>%;"></div>
-                                </div>
-                                <span class="rating-count"><?php //echo $count; 
-                                                            ?></span>
-                            </div>
-                        <?php } ?>
+                        <div>{{ r.comment }}</div>
                     </div>
                 </div>
-            </div>
-            <div class="all-reviews-container">
-                <h3>全部評論 (共 <?php //echo $total_reviews; 
-                            ?> 則)</h3>
-
-                <?php //if (empty($all_reviews)): 
-                ?>
-                <div class="single-review" style="text-align: center; color: #999;">目前尚無評論。</div>
-                <?php //else: 
-                ?>
-                <?php //foreach ($all_reviews as $review): 
-                ?>
-                <div class="single-review">
-                    <div class="review-user-info">
-                        <span class="review-user-id"><?php //echo htmlspecialchars($review['user_id']); 
-                                                        ?></span>
-                        <span class="review-stars">
-                            <?php //echo renderStars($review['rating']); 
-                            ?>
-                        </span>
-                    </div>
-                    <div class="review-comment">
-                        評語：<?php //echo nl2br(htmlspecialchars($review['comment'])); 
-                            ?>
-                    </div>
-                </div>
-                <?php //endforeach; 
-                ?>
-                <?php //endif; 
-                ?>
             </div>
         </div>
-        <div id="reviewModal" class="modal-overlay">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <div class="modal-title">撰寫評論</div>
-                    <span class="modal-close" onclick="closeReviewModal()">&times;</span>
-                </div>
 
-                <form action="#" method="POST">
-                    <label class="modal-label">您的評分:</label>
-                    <input type="hidden" name="rating" id="ratingInput" value="5">
-
-                    <div class="modal-rating-stars">
-                        <span data-value="1">★</span>
-                        <span data-value="2">★</span>
-                        <span data-value="3">★</span>
-                        <span data-value="4">★</span>
-                        <span data-value="5">★</span>
-                    </div>
-
-                    <label class="modal-label">您的心得:</label>
-                    <textarea class="modal-textarea" name="comment" placeholder="請輸入評語"></textarea>
-
-                    <button type="submit" class="modal-submit-button">提交評論</button>
-                </form>
-            </div>
-        </div>
 
 
         <!-- CART DRAWER -->
@@ -479,6 +414,14 @@ session_start();
             </div>
 
             <h5 class="fw-bold">總金額：$ {{ total }}</h5>
+            <!-- 付款方式選擇 -->
+            <div class="mb-3">
+                <label class="form-label fw-bold">付款方式</label>
+                <select v-model="payment_id" class="form-select">
+                    <option value="1" selected>刷卡</option>
+                    <option value="2">現金</option>
+                </select>
+            </div>
             <button class="btn btn-success w-100 mt-3" @click="checkout">結帳</button>
             <button class="btn btn-outline-dark w-100 mt-2" @click="toggleCart">關閉</button>
         </div>
@@ -501,6 +444,7 @@ session_start();
                             <input class="form-control mb-3" type="password" v-model="loginForm.password" placeholder="密碼">
                             <button class="btn btn-primary w-100" @click="login">登入</button>
                             <button class="btn btn-link mt-2" @click="openModal('forgot')">忘記密碼？</button>
+                            <button class="btn btn-link mt-2" @click="goAdminLogin">後台登入</button>
                         </div>
 
                         <!-- REGISTER -->
@@ -529,26 +473,7 @@ session_start();
     <script>
         let product_id = <?php echo $_GET["product_id"]; ?>;
 
-        function openReviewModal() {
-            document.getElementById('reviewModal').style.display = 'flex';
-        }
 
-        function closeReviewModal() {
-            document.getElementById('reviewModal').style.display = 'none';
-        }
-        window.onclick = function(event) {
-            if (event.target === document.getElementById('reviewModal')) closeReviewModal();
-        }
-
-        document.querySelectorAll('.modal-rating-stars span').forEach(star => {
-            star.addEventListener('click', function() {
-                const rating = parseInt(this.getAttribute('data-value'));
-                document.getElementById('ratingInput').value = rating;
-                document.querySelectorAll('.modal-rating-stars span').forEach(s => {
-                    s.style.color = (parseInt(s.getAttribute('data-value')) <= rating) ? '#ffc107' : '#ccc';
-                });
-            });
-        });
 
         const {
             createApp
@@ -583,7 +508,16 @@ session_start();
 
                     currentPage: 1,
                     pageSize: 20,
-                    inputPage: 1
+                    inputPage: 1,
+
+                    reviews: [], // 評論
+                    newReview: {
+                        rating: 5,
+                        comment: ''
+                    },
+
+                    stock: 0, // 庫存
+                    canOrder: true, // 是否可下單
                 }
             },
 
@@ -613,9 +547,18 @@ session_start();
                         this.mode === "register" ? "註冊新帳號" :
                         "忘記密碼";
                 },
+                goAdminLogin() {
+                    location.href = "backstage/admin_login.php";
+                },
                 /*** 開啟 modal ***/
                 openModal(mode) {
+                    if (mode == "forgot") {
+                        const modalEl = document.getElementById('authModal');
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl); // 取得已存在的 Modal 實例
+                        if (modalInstance) modalInstance.hide(); // 關閉 Modal
+                    }
                     this.mode = mode;
+
                     new bootstrap.Modal(document.getElementById('authModal')).show();
                 },
 
@@ -690,22 +633,111 @@ session_start();
                 },
 
                 checkout() {
+                    if (this.cart.length === 0) {
+                        alert("購物車為空");
+                        return;
+                    }
+                    if (!this.user) {
+                        this.openModal('login');
+                        return;
+                    }
                     axios.post("api.php?action=checkout", {
                         cart: this.cart,
-                        total: this.total
+                        total: this.total,
+                        payment_id: this.payment_id,
                     }).then(res => {
                         if (res.data.success) {
-                            alert("訂單完成！");
+                            alert(`訂單完成！訂單編號：${res.data.order_id}`);
                             this.cart = [];
-                        } else alert(res.data.msg);
-                    })
+                            this.toggleCart();
+                        } else {
+                            alert(`結帳失敗：${res.data.msg}`);
+                        }
+                    }).catch(err => {
+                        console.error(err);
+                        alert("結帳時發生錯誤");
+                    });
                 },
 
+                fetchReviews() {
+                    if (!product_id) return;
+                    // console.log(`http://localhost:3001/reviews/${product_id}`);
+                    axios.get(`http://localhost:3001/reviews/${product_id}`)
+                        .then(res => {
+                            if (res.data.success) this.reviews = res.data.reviews;
+                        })
+                        .catch(err => console.error(err));
+                },
 
+                submitReview() {
+                    if (!this.user) {
+                        this.openModal('login');
+                        return;
+                    }
 
+                    if (!this.newReview.comment.trim()) {
+                        alert('請輸入評論內容');
+                        return;
+                    }
+
+                    axios.post('http://localhost:3001/reviews', {
+                        product_id: this.product.product_id,
+                        customer_id: this.user.id, // 或 user.email
+                        rating: this.newReview.rating,
+                        comment: this.newReview.comment
+                    }).then(res => {
+                        if (res.data.success) {
+                            this.newReview.comment = '';
+                            this.newReview.rating = 5;
+                            this.fetchReviews(); // 重新載入評論
+                        } else {
+
+                            alert(res.data.msg);
+                        }
+                    });
+                },
+
+                setRating(r) {
+                    this.newReview.rating = r;
+                },
+
+                async fetchStock() {
+                    try {
+                        const res = await axios.get(`http://localhost:3001/stock/${product_id}`);
+                        this.stock = res.data.stock;
+                        this.canOrder = this.stock > 0;
+                    } catch (err) {
+                        console.error('庫存抓取失敗', err);
+                        this.stock = 0;
+                        this.canOrder = false;
+                    }
+                },
+
+                addToCart() {
+                    if (!this.canOrder) {
+                        alert('庫存不足，無法下單');
+                        return;
+                    }
+                    if (!this.user) {
+                        this.openModal('login');
+                        return;
+                    }
+
+                    axios.post('api.php?action=addToCart', {
+                            product_id,
+                            qty: 1
+                        })
+                        .then(res => {
+                            if (res.data.success) {
+                                alert('已加入購物車');
+                                this.cart = res.data.cart
+                            } else alert(res.data.msg || '加入購物車失敗');
+                        });
+                },
             },
 
             mounted() {
+
                 axios.get("api.php?action=session").then(res => {
                     if (res.data.logged) this.user = res.data.user;
                 });
@@ -721,6 +753,16 @@ session_start();
                 // axios.get("api.php?action=products").then(res => this.products = res.data);
                 axios.get("api.php?action=categories").then(res => this.categories = res.data);
                 this.loadCart(); // 載入購物車
+                this.fetchReviews(); // 進入頁面時載入 MongoDB 評論
+                // this.fetchStock(); // 載入庫存
+                // 每 10 秒自動刷新庫存
+                // this.stockInterval = setInterval(() => {
+                //     this.fetchStock();
+                // }, 10000); // 10 秒
+            },
+            beforeUnmount() {
+                // 清除定時器，避免離開頁面後繼續抓庫存
+                if (this.stockInterval) clearInterval(this.stockInterval);
             },
             watch: {
                 // 當分類或搜尋文字改變時，自動回到第 1 頁

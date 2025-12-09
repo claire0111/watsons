@@ -132,6 +132,7 @@ session_start();
               <img :src="p.picture" class="card-img-top product-img" @click="toProducts(p.product_id)">
               <div class="card-body">
                 <h6 class="card-title fw-bold product-name" :title=" p.product_name" @click="toProducts(p.product_id)">{{ p.product_name }}</h6>
+                <p>庫存：{{ p.stock }}</p>
                 <p class="text-danger fw-bold">$ {{ p.price }}</p>
                 <button class="btn btn-primary w-100" @click="addToCart(p)">加入購物車</button>
               </div>
@@ -183,6 +184,14 @@ session_start();
       </div>
 
       <h5 class="fw-bold">總金額：$ {{ total }}</h5>
+      <!-- 付款方式選擇 -->
+      <div class="mb-3">
+        <label class="form-label fw-bold">付款方式</label>
+        <select v-model="payment_id" class="form-select">
+          <option value="1" selected>刷卡</option>
+          <option value="2">現金</option>
+        </select>
+      </div>
       <button class="btn btn-success w-100 mt-3" @click="checkout">結帳</button>
       <button class="btn btn-outline-dark w-100 mt-2" @click="toggleCart">關閉</button>
     </div>
@@ -205,6 +214,7 @@ session_start();
               <input class="form-control mb-3" type="password" v-model="loginForm.password" placeholder="密碼">
               <button class="btn btn-primary w-100" @click="login">登入</button>
               <button class="btn btn-link mt-2" @click="openModal('forgot')">忘記密碼？</button>
+              <button class="btn btn-link mt-2" @click="goAdminLogin">後台登入</button>
             </div>
 
             <!-- REGISTER -->
@@ -242,6 +252,7 @@ session_start();
           cartOpen: false,
           products: [],
           cart: [],
+          payment_id: 2, //預設現金
           searchQuery: '', // 搜尋欄位
 
           mode: "login",
@@ -263,7 +274,10 @@ session_start();
 
           currentPage: 1,
           pageSize: 20,
-          inputPage: 1
+          inputPage: 1,
+
+          stock: 0, // 庫存
+          canOrder: true, // 是否可下單
         }
       },
 
@@ -336,10 +350,21 @@ session_start();
             this.mode === "register" ? "註冊新帳號" :
             "忘記密碼";
         },
+        goAdminLogin() {
+          location.href = "backstage/admin_login.php";
+        },
         /*** 開啟 modal ***/
         openModal(mode) {
+          if (mode == "forgot") {
+            const modalEl = document.getElementById('authModal');
+            const modalInstance = bootstrap.Modal.getInstance(modalEl); // 取得已存在的 Modal 實例
+            if (modalInstance) modalInstance.hide(); // 關閉 Modal
+          }
           this.mode = mode;
+
           new bootstrap.Modal(document.getElementById('authModal')).show();
+
+
         },
 
         toggleCart() {
@@ -403,7 +428,7 @@ session_start();
           const pageInput = parseInt(this.inputPage);
           if (!isNaN(pageInput)) this.goPage(pageInput);
         },
-        
+
 
         /*** Auth ***/
         login() {
@@ -429,21 +454,71 @@ session_start();
         },
 
         checkout() {
+          if (this.cart.length === 0) {
+            alert("購物車為空");
+            return;
+          }
+          if (!this.user) {
+            this.openModal('login');
+            return;
+          }
           axios.post("api.php?action=checkout", {
             cart: this.cart,
-            total: this.total
+            total: this.total,
+            payment_id: this.payment_id,
           }).then(res => {
             if (res.data.success) {
-              alert("訂單完成！");
+              alert(`訂單完成！訂單編號：${res.data.order_id}`);
               this.cart = [];
-            } else alert(res.data.msg);
-          })
+              this.toggleCart();
+            } else {
+              alert(`結帳失敗：${res.data.msg}`);
+            }
+          }).catch(err => {
+            console.error(err);
+            alert("結帳時發生錯誤");
+          });
         },
         toProducts(id) {
 
           location.href = "product_details.php?product_id=" + id;
-        }
+        },
+        // ====== 抓所有商品庫存 ======
+        async fetchStockAll() {
+          try {
+            const promises = this.products.map(async p => {
+              const res = await axios.get(`http://localhost:3001/stock/${p.product_id}`);
+              p.stock = res.data.stock;
+              console.log(res.data.stock)
+              p.canOrder = res.data.stock > 0;
+            });
+            await Promise.all(promises);
+          } catch (err) {
+            console.error("庫存抓取失敗", err);
+          }
+        },
 
+        addToCart(p) {
+          if (!p.canOrder) {
+            alert('庫存不足，無法下單');
+            return;
+          }
+          if (!this.user) {
+            this.openModal('login');
+            return;
+          }
+
+          axios.post('api.php?action=addToCart', {
+              product_id: p.product_id,
+              qty: 1
+            })
+            .then(res => {
+              if (res.data.success) {
+                alert('已加入購物車');
+                this.cart = res.data.cart;
+              } else alert(res.data.msg || '加入購物車失敗');
+            });
+        },
 
       },
 
@@ -454,6 +529,11 @@ session_start();
         axios.get("api.php?action=products").then(res => this.products = res.data);
         axios.get("api.php?action=categories").then(res => this.categories = res.data);
         this.loadCart();
+        // this.fetchStockAll(); // 載入庫存
+        // 每 10 秒自動刷新庫存
+        // this.stockInterval = setInterval(() => {
+        //   this.fetchStockAll();
+        // }, 10000); // 10 秒
       },
       watch: {
         // 當分類或搜尋文字改變時，自動回到第 1 頁

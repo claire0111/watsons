@@ -8,7 +8,7 @@ async function main() {
     const db = await mysql.createConnection({
       host: '127.0.0.1',
       user: 'root',
-      password: '0502', // 改成你的 MySQL 密碼
+      password: '', // 改成你的 MySQL 密碼
       database: 'watsons_db'
     });
 
