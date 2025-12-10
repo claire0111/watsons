@@ -38,10 +38,10 @@
 
 ## 安裝教學
 1. 克隆專案
-git clone https://github.com/<username>/watsons-mvp.git
-cd watsons-mvp
+git clone https://github.com/<username>/watsons.git
+cd watsons.git
 
-2. 建立資料庫
+3. 建立資料庫
 MySQL 建立資料庫 watsons
 匯入 SQL 表：
 CREATE TABLE customer (...);
@@ -50,10 +50,10 @@ CREATE TABLE order (...);
 CREATE TABLE order_detail (...);
 CREATE TABLE membership_level (...);
 
-3. MongoDB 建立資料庫 watsons，collection reviews
+4. MongoDB 建立資料庫 watsons，collection reviews
 Redis 安裝並啟動
 
-4. 後端設定
+5. 後端設定
 PHP: 設定 db.php 連線 MySQL
 Node.js (可選): server.js 連線 MongoDB + Redis
 
