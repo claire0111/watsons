@@ -49,7 +49,7 @@
 
 3. 匯入資料庫表
 
-   https://github.com/claire0111/watsons/edit/main/MySQL/127_0_0_1.sql
+   https://github.com/claire0111/watsons/edit/main/MySQL/schema.sql
    
 
 4. MongoDB 建立資料庫 watsons，collection reviews
