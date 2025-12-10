@@ -41,14 +41,7 @@
 git clone https://github.com/<username>/watsons.git
 cd watsons.git
 
-3. 建立資料庫
-MySQL 建立資料庫 watsons
-匯入 SQL 表：
-CREATE TABLE customer (...);
-CREATE TABLE product (...);
-CREATE TABLE order (...);
-CREATE TABLE order_detail (...);
-CREATE TABLE membership_level (...);
+3. 匯入資料庫表
 
 4. MongoDB 建立資料庫 watsons，collection reviews
 Redis 安裝並啟動
