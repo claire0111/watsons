@@ -39,9 +39,11 @@
 ## 安裝教學
 1. 克隆專案
 git clone https://github.com/<username>/watsons.git
+
 cd watsons.git
 
 3. 匯入資料庫表
+MySQL/127_0_0_1.sql
 
 4. MongoDB 建立資料庫 watsons，collection reviews
 Redis 安裝並啟動
