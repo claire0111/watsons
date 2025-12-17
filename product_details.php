@@ -553,11 +553,11 @@ session_start();
                 },
                 /*** 開啟 modal ***/
                 openModal(mode) {
-                    if (mode == "forgot") {
-                        const modalEl = document.getElementById('authModal');
-                        const modalInstance = bootstrap.Modal.getInstance(modalEl); // 取得已存在的 Modal 實例
-                        if (modalInstance) modalInstance.hide(); // 關閉 Modal
-                    }
+                    // if (mode == "forgot") {
+                    const modalEl = document.getElementById('authModal');
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl); // 取得已存在的 Modal 實例
+                    if (modalInstance) modalInstance.hide(); // 關閉 Modal
+                    // }
                     this.mode = mode;
 
                     new bootstrap.Modal(document.getElementById('authModal')).show();
@@ -571,6 +571,10 @@ session_start();
                 addToCart() {
                     if (!this.user) {
                         this.openModal('login');
+                        return;
+                    }
+                    if (this.product.stock <= 0) {
+                        alert('庫存不足');
                         return;
                     }
                     axios.post('api.php?action=addToCart', {
@@ -619,7 +623,14 @@ session_start();
                 register() {
                     axios.post("api.php?action=register", this.registerForm).then(res => {
                         alert(res.data.msg);
-                        if (res.data.success) this.openModal('login');
+                        if (res.data.success) {
+                            this.registerForm = {
+                                username: "",
+                                email: "",
+                                password: ""
+                            }
+                            this.openModal('login');
+                        }
                     });
                 },
 
@@ -712,7 +723,7 @@ session_start();
                     }
                 },
 
-               
+
             },
 
             mounted() {

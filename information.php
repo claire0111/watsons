@@ -136,7 +136,7 @@ session_start();
                     <label class="form-label text-end">
                         <span class="required-star">*</span>電子信箱
                     </label>
-                    <input v-if="user" type="email" class="form-control" :value="profile.email">
+                    <input v-if="user" type="email" class="form-control" :value="profile.email" disabled>
                 </div>
 
                 <div class="mb-3 form-row-item">

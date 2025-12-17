@@ -291,7 +291,7 @@ session_start();
           return this.cart.reduce((a, b) => a + Number(b.quantity), 0)
         },
         total() {
-          return this.cart.reduce((t, i) => t +  Number(i.quantity) * i.price, 0)
+          return this.cart.reduce((t, i) => t + Number(i.quantity) * i.price, 0)
         },
 
 
@@ -355,11 +355,11 @@ session_start();
         },
         /*** 開啟 modal ***/
         openModal(mode) {
-          if (mode == "forgot") {
-            const modalEl = document.getElementById('authModal');
-            const modalInstance = bootstrap.Modal.getInstance(modalEl); // 取得已存在的 Modal 實例
-            if (modalInstance) modalInstance.hide(); // 關閉 Modal
-          }
+          // if (mode == "forgot") {
+          const modalEl = document.getElementById('authModal');
+          const modalInstance = bootstrap.Modal.getInstance(modalEl); // 取得已存在的 Modal 實例
+          if (modalInstance) modalInstance.hide(); // 關閉 Modal
+          // }
           this.mode = mode;
 
           new bootstrap.Modal(document.getElementById('authModal')).show();
@@ -375,6 +375,10 @@ session_start();
         addToCart(p) {
           if (!this.user) {
             this.openModal('login');
+            return;
+          }
+          if(p.stock<=0){
+            alert('庫存不足');
             return;
           }
           axios.post('api.php?action=addToCart', {
@@ -394,7 +398,7 @@ session_start();
 
           axios.get('api.php?action=getCart').then(res => {
             if (res.data.success) {
-              
+
               this.cart = res.data.cart;
             }
           });
@@ -440,7 +444,14 @@ session_start();
         register() {
           axios.post("api.php?action=register", this.registerForm).then(res => {
             alert(res.data.msg);
-            if (res.data.success) this.openModal('login');
+            if (res.data.success) {
+              this.registerForm = {
+                username: "",
+                email: "",
+                password: ""
+              }
+              this.openModal('login');
+            }
           });
         },
 
@@ -496,7 +507,7 @@ session_start();
           }
         },
 
-        
+
       },
       mounted() {
         axios.get("api.php?action=session").then(res => {
